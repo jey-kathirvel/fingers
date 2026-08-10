@@ -1,24 +1,24 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 
 export default function LoginPage() {
-  const { login, context, loading } = useAuth();
+  const { ready, user, login } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("admin@ads-ai.in");
-  const [password, setPassword] = useState("ChangeMe123!");
+  const [email, setEmail] = useState("admin@fingers.ads-ai.in");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  if (!loading && context) {
-    router.replace("/dashboard");
-  }
+  useEffect(() => {
+    if (ready && user) router.replace("/dashboard");
+  }, [ready, user, router]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
+    setLoading(true);
     setError(null);
     try {
       await login(email, password);
@@ -26,54 +26,52 @@ export default function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-forest/20 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-amber/20 blur-3xl" />
-      </div>
-      <div className="glass shadow-soft fade-up relative w-full max-w-md rounded-[2rem] p-8">
-        <p className="text-xs uppercase tracking-[0.28em] text-forest">Fingers</p>
-        <h1 className="display mt-3 text-4xl text-ink">Sign in</h1>
-        <p className="fade-up-delay mt-2 text-sm text-ink/65">
-          Multi-brand social control plane for plan → create → publish → engage.
-        </p>
-        <form onSubmit={onSubmit} className="mt-8 space-y-4">
-          <label className="block text-sm">
-            <span className="mb-1.5 block text-ink/70">Email</span>
+    <div className="min-h-screen bg-atmosphere px-4 py-10">
+      <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.1fr_0.9fr] md:items-center">
+        <section className="text-ink">
+          <p className="mb-3 text-xs uppercase tracking-[0.22em] text-tide">fingers.ads-ai.in</p>
+          <h1 className="font-display text-5xl leading-[1.05] tracking-tight md:text-6xl">
+            Social Media Engineering & Engagement
+          </h1>
+          <p className="mt-5 max-w-xl text-lg text-ink-mute">
+            Plan → Create → Approve → Publish → Engage → Analyze from one multi-brand control plane.
+          </p>
+        </section>
+
+        <form onSubmit={onSubmit} className="rounded-2xl bg-white/80 p-6 shadow-panel backdrop-blur">
+          <h2 className="font-display text-3xl">Sign in</h2>
+          <p className="mt-1 text-sm text-ink-mute">Access your organization workspace</p>
+          <label className="mt-6 block text-sm">
+            Email
             <input
-              className="w-full rounded-xl border border-[var(--line)] bg-white/80 px-3 py-2.5 outline-none ring-forest focus:ring-2"
+              className="mt-1 w-full rounded-lg border border-ink/10 px-3 py-2"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              type="email"
               required
             />
           </label>
-          <label className="block text-sm">
-            <span className="mb-1.5 block text-ink/70">Password</span>
+          <label className="mt-4 block text-sm">
+            Password
             <input
-              className="w-full rounded-xl border border-[var(--line)] bg-white/80 px-3 py-2.5 outline-none ring-forest focus:ring-2"
+              className="mt-1 w-full rounded-lg border border-ink/10 px-3 py-2"
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              type="password"
               required
             />
           </label>
-          {error ? (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </p>
-          ) : null}
+          {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
           <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-forest px-4 py-3 text-sm font-semibold text-white transition hover:bg-forest-deep disabled:opacity-60"
+            disabled={loading}
+            className="mt-6 w-full rounded-lg bg-tide px-4 py-3 font-medium text-white disabled:opacity-60"
           >
-            {submitting ? "Signing in…" : "Enter workspace"}
+            {loading ? "Signing in…" : "Enter Fingers"}
           </button>
         </form>
       </div>

@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.core.rbac import MemberRole
+from app.models import Role
 
 
 class ORMModel(BaseModel):
@@ -20,118 +20,73 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class UserCreate(BaseModel):
-    email: EmailStr
-    full_name: str = Field(min_length=2, max_length=200)
-    password: str = Field(min_length=8, max_length=128)
-
-
 class UserOut(ORMModel):
-    id: str
+    id: UUID
     email: EmailStr
     full_name: str
     is_active: bool
-    is_superuser: bool
     created_at: datetime
 
 
 class OrganizationCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=200)
-    slug: Optional[str] = Field(default=None, max_length=120)
-    description: Optional[str] = None
-
-
-class OrganizationUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=2, max_length=200)
-    description: Optional[str] = None
+    name: str = Field(min_length=2, max_length=255)
+    slug: str = Field(min_length=2, max_length=100, pattern=r"^[a-z0-9-]+$")
 
 
 class OrganizationOut(ORMModel):
-    id: str
+    id: UUID
     name: str
     slug: str
-    description: Optional[str]
     created_at: datetime
-
-
-class BrandGuidelineIn(BaseModel):
-    approved_keywords: Optional[str] = None
-    restricted_words: Optional[str] = None
-    competitors: Optional[str] = None
-    visual_style: Optional[str] = None
-    notes: Optional[str] = None
-
-
-class BrandCreate(BaseModel):
-    organization_id: str
-    name: str = Field(min_length=2, max_length=200)
-    slug: Optional[str] = Field(default=None, max_length=120)
-    description: Optional[str] = None
-    website: Optional[str] = None
-    logo_url: Optional[str] = None
-    primary_color: Optional[str] = None
-    tone_of_voice: Optional[str] = None
-    target_audience: Optional[str] = None
-    default_cta: Optional[str] = None
-    guidelines: Optional[BrandGuidelineIn] = None
-
-
-class BrandUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=2, max_length=200)
-    description: Optional[str] = None
-    website: Optional[str] = None
-    logo_url: Optional[str] = None
-    primary_color: Optional[str] = None
-    tone_of_voice: Optional[str] = None
-    target_audience: Optional[str] = None
-    default_cta: Optional[str] = None
-    is_active: Optional[bool] = None
-    guidelines: Optional[BrandGuidelineIn] = None
-
-
-class BrandGuidelineOut(ORMModel):
-    approved_keywords: Optional[str]
-    restricted_words: Optional[str]
-    competitors: Optional[str]
-    visual_style: Optional[str]
-    notes: Optional[str]
-
-
-class BrandOut(ORMModel):
-    id: str
-    organization_id: str
-    name: str
-    slug: str
-    description: Optional[str]
-    website: Optional[str]
-    logo_url: Optional[str]
-    primary_color: Optional[str]
-    tone_of_voice: Optional[str]
-    target_audience: Optional[str]
-    default_cta: Optional[str]
-    is_active: bool
-    created_at: datetime
-    guidelines: Optional[BrandGuidelineOut] = None
 
 
 class MembershipOut(ORMModel):
-    id: str
-    organization_id: str
-    user_id: str
-    role: MemberRole
-    is_default: bool
-    organization: Optional[OrganizationOut] = None
+    id: UUID
+    organization_id: UUID
+    user_id: UUID
+    role: Role
+    organization: OrganizationOut | None = None
 
 
-class ActiveContextOut(BaseModel):
-    user: UserOut
-    organization: Optional[OrganizationOut] = None
-    brand: Optional[BrandOut] = None
-    role: Optional[MemberRole] = None
-    permissions: list[str] = []
+class BrandCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=255)
+    slug: str = Field(min_length=2, max_length=100, pattern=r"^[a-z0-9-]+$")
+    description: str | None = None
+    website: str | None = None
+    logo_url: str | None = None
+    primary_color: str | None = None
+    tone_of_voice: str | None = None
+    target_audience: str | None = None
 
 
-class DashboardOverviewOut(BaseModel):
+class BrandUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    description: str | None = None
+    website: str | None = None
+    logo_url: str | None = None
+    primary_color: str | None = None
+    tone_of_voice: str | None = None
+    target_audience: str | None = None
+    is_active: bool | None = None
+
+
+class BrandOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    name: str
+    slug: str
+    description: str | None
+    website: str | None
+    logo_url: str | None
+    primary_color: str | None
+    tone_of_voice: str | None
+    target_audience: str | None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class DashboardOverview(BaseModel):
     followers: int = 0
     reach: int = 0
     impressions: int = 0
@@ -140,21 +95,21 @@ class DashboardOverviewOut(BaseModel):
     leads: int = 0
     published_posts: int = 0
     response_backlog: int = 0
+    brands_count: int = 0
+    connected_accounts: int = 0
     failed_posts: int = 0
     scheduled_posts: int = 0
     approval_items: int = 0
-    integration_health: list[dict] = []
-    ai_recommendations: list[str] = []
+    integration_health: list[dict] = Field(default_factory=list)
+    action_queue: list[dict] = Field(default_factory=list)
+    recommendations: list[dict] = Field(default_factory=list)
 
 
-class HealthDependency(BaseModel):
-    name: str
+class HealthResponse(BaseModel):
     status: str
-    detail: Optional[str] = None
-
-
-class HealthOut(BaseModel):
-    status: str
+    app: str
     version: str
     environment: str
-    dependencies: list[HealthDependency]
+    database: str
+    redis: str
+    timestamp: datetime

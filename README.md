@@ -1,115 +1,65 @@
 # Fingers
 
-AI-first Social Media Engineering & Engagement platform for multi-brand teams.
-
-Deployment target: `https://fingers.ads-ai.in` on Hostinger VPS (`/opt/fingers`).
-
-## Phase 1 status (this PR)
-
-Foundation only — no social platform API integrations yet:
-
-- FastAPI backend with auth, organizations, brands, RBAC, health/version, dashboard overview API
-- Next.js UI shell with login, brand switcher, dashboard, settings brand CRUD
-- Alembic migration, Celery worker stub, systemd + Apache deploy assets
-- Local SQLite-backed tests and VPS deploy/backup scripts
+Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 
 ## Stack
 
-| Layer | Choice |
-| --- | --- |
-| Frontend | Next.js + React + Tailwind |
-| Backend | FastAPI |
-| Database | PostgreSQL (SQLite for local tests) |
-| Jobs | Redis + Celery |
-| Deploy | systemd + Apache reverse proxy + Certbot |
+- **Frontend:** Next.js 14 + Tailwind (port `3090`)
+- **Backend:** FastAPI (port `8095`; `8090` is reserved by another app on this VPS)
+- **Worker:** heartbeat/scheduler placeholder
+- **Database:** PostgreSQL (`fingers_db`)
 
-## Repository layout
+## Phase 1 (this release)
 
-```text
-/opt/fingers (prod) or repo root (dev)
-├── backend/
-├── frontend/
-├── worker/
-├── migrations/
-├── scripts/
-├── deploy/
-├── storage/
-├── logs/
-├── .env
-└── README.md
-```
+- Auth (login/logout/session token)
+- Organizations + memberships
+- Brands CRUD + active brand switcher
+- RBAC roles: admin, creator, reviewer, approver, analyst
+- Dashboard shell fed by `/api/analytics/overview`
+- Health/version endpoints
+- systemd services + Apache reverse proxy deployment
+
+Later phases (AI Studio, publishing adapters, inbox, analytics, automation) are scaffolded in navigation as upcoming modules.
 
 ## Local development
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r backend/requirements.txt
-cp .env.example .env   # or use committed local .env template values carefully
+cp .env.example .env
+# backend
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export PYTHONPATH=.
+alembic upgrade head
+python -m app.db.seed
+uvicorn app.main:app --reload --port 8095
 
-# API
-export PYTHONPATH=backend
-uvicorn app.main:app --reload --port 8090
-
-# Web
-cd frontend
+# frontend
+cd ../frontend
 npm install
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8090/api npm run dev -- --port 3090
+API_INTERNAL_URL=http://127.0.0.1:8095 npm run dev -- --port 3090
 ```
 
-Default local admin (from `.env`):
+Default seed admin (change in production):
 
-- Email: `admin@ads-ai.in`
-- Password: `ChangeMe123!`
+- Email: `admin@fingers.ads-ai.in`
+- Password: from `SEED_ADMIN_PASSWORD` in `.env`
 
-## Tests
+## VPS deploy
 
 ```bash
-source .venv/bin/activate
-export PYTHONPATH=backend
-pytest backend/tests -q
+export FINGERS_DB_PASS='...'
+./scripts/provision-db.sh
+# write /opt/fingers/.env from .env.example with production secrets
+./scripts/deploy.sh
+./scripts/configure-apache.sh
 ```
 
-## Hostinger VPS deploy
+Services: `fingers-api`, `fingers-web`, `fingers-worker`.
 
-Confirmed target:
+Backup: `./scripts/backup-db.sh`
 
-- Domain: `fingers.ads-ai.in`
-- Path: `/opt/fingers`
-- DB: `fingers_db` / `fingers_user`
-- Ports: API `8090`, Web `3090`
+## Health
 
-On the VPS as root (after DNS A record points to the server):
-
-```bash
-export INITIAL_ADMIN_EMAIL='your@email'
-export INITIAL_ADMIN_PASSWORD='strong-password'
-export CERTBOT_EMAIL='your@email'
-bash scripts/deploy_vps.sh
-```
-
-Services:
-
-- `fingers-api.service`
-- `fingers-web.service`
-- `fingers-worker.service`
-
-Backup / restore:
-
-```bash
-bash scripts/backup_db.sh
-bash scripts/restore_db.sh /opt/fingers/storage/backups/fingers_db_XXXX.sql.gz
-```
-
-## Roadmap after Phase 1
-
-1. AI Content Studio
-2. Publishing adapters (Meta + LinkedIn first)
-3. Engagement inbox
-4. Analytics → Campaigns/Leads → Advisor → Automation/Listening
-
-## Security notes
-
-- Never commit production `.env` or social OAuth tokens
-- Prefer SSH keys for VPS access; rotate any password shared in chat
-- RBAC is enforced in backend APIs, not only in the UI
+- API: `GET /api/health`
+- Version: `GET /api/version`

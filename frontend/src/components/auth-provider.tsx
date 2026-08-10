@@ -10,137 +10,164 @@ import {
   type ReactNode,
 } from "react";
 import {
-  apiFetch,
-  type ActiveContext,
+  api,
+  getActiveBrandId,
+  getActiveOrgId,
+  getToken,
+  setActiveBrandId,
+  setActiveOrgId,
+  setToken,
   type Brand,
-  type Organization,
-} from "@/lib/utils";
+  type Membership,
+  type User,
+} from "@/lib/api";
 
 type AuthState = {
-  token: string | null;
-  context: ActiveContext | null;
+  ready: boolean;
+  user: User | null;
+  memberships: Membership[];
   brands: Brand[];
-  organizations: Organization[];
-  activeBrandId: string | null;
-  loading: boolean;
+  orgId: string | null;
+  brandId: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  refresh: () => Promise<void>;
-  setActiveBrandId: (id: string) => void;
+  setOrgId: (id: string) => Promise<void>;
+  setBrandId: (id: string) => void;
+  refreshBrands: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
-const TOKEN_KEY = "fingers_token";
-const BRAND_KEY = "fingers_active_brand";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [context, setContext] = useState<ActiveContext | null>(null);
+  const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [activeBrandId, setActiveBrandIdState] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [orgId, setOrgIdState] = useState<string | null>(null);
+  const [brandId, setBrandIdState] = useState<string | null>(null);
 
-  const setActiveBrandId = useCallback((id: string) => {
-    setActiveBrandIdState(id);
-    localStorage.setItem(BRAND_KEY, id);
-  }, []);
-
-  const refresh = useCallback(async () => {
-    const saved = localStorage.getItem(TOKEN_KEY);
-    if (!saved) {
-      setToken(null);
-      setContext(null);
+  const refreshBrands = useCallback(async (organizationId?: string | null) => {
+    const activeOrg = organizationId ?? getActiveOrgId();
+    if (!activeOrg || !getToken()) {
       setBrands([]);
-      setOrganizations([]);
-      setLoading(false);
       return;
     }
-    setToken(saved);
-    const me = await apiFetch<ActiveContext>("/auth/me", {}, saved);
-    setContext(me);
-    const orgs = await apiFetch<Organization[]>("/organizations", {}, saved);
-    setOrganizations(orgs);
-    const orgId = me.organization?.id || orgs[0]?.id;
-    if (orgId) {
-      const brandList = await apiFetch<Brand[]>(
-        `/brands?organization_id=${orgId}`,
-        {},
-        saved,
-      );
-      setBrands(brandList);
-      const savedBrand = localStorage.getItem(BRAND_KEY);
-      const nextBrand =
-        brandList.find((b) => b.id === savedBrand)?.id ||
-        me.brand?.id ||
-        brandList[0]?.id ||
-        null;
-      if (nextBrand) setActiveBrandId(nextBrand);
+    const list = await api<Brand[]>("/api/brands", { orgId: activeOrg });
+    setBrands(list);
+    const currentBrand = getActiveBrandId();
+    if (currentBrand && list.some((b) => b.id === currentBrand)) {
+      setBrandIdState(currentBrand);
+    } else if (list[0]) {
+      setActiveBrandId(list[0].id);
+      setBrandIdState(list[0].id);
+    } else {
+      setActiveBrandId(null);
+      setBrandIdState(null);
     }
-    setLoading(false);
-  }, [setActiveBrandId]);
+  }, []);
+
+  const bootstrap = useCallback(async () => {
+    const token = getToken();
+    if (!token) {
+      setReady(true);
+      return;
+    }
+    try {
+      const me = await api<User>("/api/auth/me");
+      const membershipList = await api<Membership[]>("/api/users/me/memberships");
+      setUser(me);
+      setMemberships(membershipList);
+      let activeOrg = getActiveOrgId();
+      if (!activeOrg || !membershipList.some((m) => m.organization_id === activeOrg)) {
+        activeOrg = membershipList[0]?.organization_id ?? null;
+        setActiveOrgId(activeOrg);
+      }
+      setOrgIdState(activeOrg);
+      await refreshBrands(activeOrg);
+    } catch {
+      setToken(null);
+      setUser(null);
+      setMemberships([]);
+      setBrands([]);
+    } finally {
+      setReady(true);
+    }
+  }, [refreshBrands]);
 
   useEffect(() => {
-    refresh().catch(() => {
-      localStorage.removeItem(TOKEN_KEY);
-      setLoading(false);
-    });
-  }, [refresh]);
+    void bootstrap();
+  }, [bootstrap]);
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const res = await apiFetch<{ access_token: string }>("/auth/login", {
+      const res = await api<{ access_token: string }>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
+        orgId: null,
       });
-      localStorage.setItem(TOKEN_KEY, res.access_token);
       setToken(res.access_token);
-      await refresh();
+      setReady(false);
+      await bootstrap();
     },
-    [refresh],
+    [bootstrap],
   );
 
   const logout = useCallback(async () => {
-    if (token) {
-      try {
-        await apiFetch("/auth/logout", { method: "POST" }, token);
-      } catch {
-        // ignore network logout failures
-      }
+    try {
+      if (getToken()) await api("/api/auth/logout", { method: "POST" });
+    } catch {
+      /* ignore */
     }
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(BRAND_KEY);
     setToken(null);
-    setContext(null);
+    setActiveOrgId(null);
+    setActiveBrandId(null);
+    setUser(null);
+    setMemberships([]);
     setBrands([]);
-    setOrganizations([]);
-    setActiveBrandIdState(null);
-  }, [token]);
+    setOrgIdState(null);
+    setBrandIdState(null);
+  }, []);
+
+  const setOrgId = useCallback(
+    async (id: string) => {
+      setActiveOrgId(id);
+      setOrgIdState(id);
+      await refreshBrands(id);
+    },
+    [refreshBrands],
+  );
+
+  const setBrandId = useCallback((id: string) => {
+    setActiveBrandId(id);
+    setBrandIdState(id);
+  }, []);
 
   const value = useMemo(
     () => ({
-      token,
-      context,
+      ready,
+      user,
+      memberships,
       brands,
-      organizations,
-      activeBrandId,
-      loading,
+      orgId,
+      brandId,
       login,
       logout,
-      refresh,
-      setActiveBrandId,
+      setOrgId,
+      setBrandId,
+      refreshBrands: () => refreshBrands(),
     }),
     [
-      token,
-      context,
+      ready,
+      user,
+      memberships,
       brands,
-      organizations,
-      activeBrandId,
-      loading,
+      orgId,
+      brandId,
       login,
       logout,
-      refresh,
-      setActiveBrandId,
+      setOrgId,
+      setBrandId,
+      refreshBrands,
     ],
   );
 

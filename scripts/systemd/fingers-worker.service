@@ -1,0 +1,16 @@
+[Unit]
+Description=Fingers Worker
+After=network.target fingers-api.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/fingers
+EnvironmentFile=/opt/fingers/.env
+Environment=PYTHONPATH=/opt/fingers/backend
+ExecStart=/opt/fingers/backend/.venv/bin/python /opt/fingers/worker/main.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

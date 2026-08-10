@@ -1,112 +1,91 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AppShell } from "@/components/app-shell";
+import { api, type DashboardOverview } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
-import { apiFetch, type DashboardOverview } from "@/lib/utils";
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl border border-ink/5 bg-white/80 p-4 shadow-sm">
+      <p className="text-xs uppercase tracking-[0.16em] text-ink-mute">{label}</p>
+      <p className="mt-2 font-display text-3xl tracking-tight">{value}</p>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
-  const { token, activeBrandId, context } = useAuth();
+  const { orgId, ready, user } = useAuth();
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
-    const params = new URLSearchParams();
-    if (context?.organization?.id) params.set("organization_id", context.organization.id);
-    if (activeBrandId) params.set("brand_id", activeBrandId);
-    apiFetch<DashboardOverview>(`/analytics/overview?${params}`, {}, token)
+    if (!ready || !user || !orgId) return;
+    api<DashboardOverview>("/api/analytics/overview")
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
-  }, [token, activeBrandId, context?.organization?.id]);
-
-  const kpis = data
-    ? [
-        ["Followers", data.followers],
-        ["Reach", data.reach],
-        ["Impressions", data.impressions],
-        ["Engagement", `${data.engagement_rate}%`],
-        ["Clicks", data.clicks],
-        ["Leads", data.leads],
-        ["Published", data.published_posts],
-        ["Backlog", data.response_backlog],
-      ]
-    : [];
+  }, [ready, user, orgId]);
 
   return (
-    <div className="space-y-4">
-      <div className="glass shadow-soft fade-up overflow-hidden rounded-[2rem] p-6 md:p-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-forest">
-              What needs attention
-            </p>
-            <h2 className="display mt-2 text-4xl text-ink md:text-5xl">
-              Command center
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm text-ink/65 md:text-base">
-              Live Phase 1 dashboard backed by the FastAPI analytics overview.
-              Social adapters arrive in later phases.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 rounded-full bg-mist px-3 py-1.5 text-xs text-forest">
-            <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-forest" />
-            API connected
-          </div>
-        </div>
-      </div>
+    <AppShell title="Dashboard" subtitle="What is happening, what needs attention, what to do next">
+      {error ? <p className="text-red-700">{error}</p> : null}
+      {!data ? (
+        <p className="text-ink-mute">Loading live overview…</p>
+      ) : (
+        <div className="space-y-8">
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat label="Followers" value={data.followers} />
+            <Stat label="Reach" value={data.reach} />
+            <Stat label="Impressions" value={data.impressions} />
+            <Stat label="Engagement rate" value={`${data.engagement_rate}%`} />
+            <Stat label="Clicks" value={data.clicks} />
+            <Stat label="Leads" value={data.leads} />
+            <Stat label="Published posts" value={data.published_posts} />
+            <Stat label="Response backlog" value={data.response_backlog} />
+          </section>
 
-      {error ? (
-        <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
-      ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {kpis.map(([label, value], idx) => (
-          <div
-            key={label as string}
-            className="glass shadow-soft rounded-3xl p-5"
-            style={{ animationDelay: `${idx * 40}ms` }}
-          >
-            <p className="text-xs uppercase tracking-[0.18em] text-ink/45">{label}</p>
-            <p className="display mt-3 text-3xl text-ink">{value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="glass shadow-soft fade-up-delay rounded-[1.75rem] p-6">
-          <h3 className="display text-2xl text-ink">Action queue</h3>
-          <ul className="mt-4 space-y-3 text-sm text-ink/75">
-            <li>Failed posts: {data?.failed_posts ?? "—"}</li>
-            <li>Scheduled posts: {data?.scheduled_posts ?? "—"}</li>
-            <li>Approval items: {data?.approval_items ?? "—"}</li>
-            <li>Unanswered backlog: {data?.response_backlog ?? "—"}</li>
-          </ul>
-        </div>
-        <div className="glass shadow-soft fade-up-delay rounded-[1.75rem] p-6">
-          <h3 className="display text-2xl text-ink">AI recommendations</h3>
-          <ul className="mt-4 space-y-3 text-sm text-ink/75">
-            {(data?.ai_recommendations || []).map((item) => (
-              <li key={item} className="border-l-2 border-forest/40 pl-3">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <div className="glass shadow-soft rounded-[1.75rem] p-6">
-        <h3 className="display text-2xl text-ink">Integration health</h3>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {(data?.integration_health || []).map((item) => (
-            <div key={item.platform} className="rounded-2xl bg-mist/70 px-4 py-3">
-              <p className="font-medium text-ink">{item.platform}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-ink/50">
-                {item.status.replaceAll("_", " ")}
+          <section className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-ink/5 bg-white/80 p-5 lg:col-span-1">
+              <h2 className="font-display text-2xl">Action queue</h2>
+              <ul className="mt-4 space-y-3">
+                {data.action_queue.map((item) => (
+                  <li key={item.id} className="rounded-xl bg-mist px-3 py-3 text-sm">
+                    <p className="font-medium">{item.title}</p>
+                    <p className="text-ink-mute">
+                      {item.type} · {item.priority}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-ink/5 bg-white/80 p-5">
+              <h2 className="font-display text-2xl">Integration health</h2>
+              <ul className="mt-4 space-y-3">
+                {data.integration_health.map((item) => (
+                  <li key={item.platform} className="flex items-center justify-between rounded-xl bg-mist px-3 py-3 text-sm">
+                    <span className="capitalize">{item.platform}</span>
+                    <span className="text-ink-mute">{item.status.replaceAll("_", " ")}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-sm text-ink-mute">
+                Brands in workspace: <strong>{data.brands_count}</strong>
               </p>
             </div>
-          ))}
+            <div className="rounded-2xl border border-ink/5 bg-white/80 p-5">
+              <h2 className="font-display text-2xl">AI recommendations</h2>
+              <ul className="mt-4 space-y-3">
+                {data.recommendations.map((item) => (
+                  <li key={item.id} className="rounded-xl bg-tide-soft/60 px-3 py-3 text-sm">
+                    <p className="font-medium">{item.title}</p>
+                    <p className="text-ink-mute">{item.detail}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
         </div>
-      </div>
-    </div>
+      )}
+    </AppShell>
   );
 }

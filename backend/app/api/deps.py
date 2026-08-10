@@ -1,25 +1,24 @@
-from typing import Optional
+from collections.abc import Callable
+from typing import Annotated
+from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.rbac import MemberRole, ROLE_PERMISSIONS, role_has_permission
-from app.core.security import decode_access_token
-from app.core.utils import slugify
 from app.db.session import get_db
-from app.models import OrganizationMember, User
+from app.core.security import decode_access_token
+from app.models import OrganizationMember, Role, User
 
-bearer_scheme = HTTPBearer(auto_error=False)
-
-__all__ = ["slugify", "get_current_user", "get_membership", "require_permission", "permissions_for_role"]
+bearer = HTTPBearer(auto_error=False)
+DbDep = Annotated[Session, Depends(get_db)]
 
 
 def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    db: DbDep,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
 ) -> User:
-    if credentials is None or credentials.scheme.lower() != "bearer":
+    if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     try:
         payload = decode_access_token(credentials.credentials)
@@ -27,17 +26,16 @@ def get_current_user(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
-    user = db.get(User, user_id)
+    user = db.get(User, UUID(user_id))
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive or missing")
     return user
 
 
-def get_membership(
-    organization_id: str,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> OrganizationMember:
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def get_membership(db: Session, user: User, organization_id: UUID) -> OrganizationMember:
     membership = (
         db.query(OrganizationMember)
         .options(joinedload(OrganizationMember.organization))
@@ -47,31 +45,24 @@ def get_membership(
         )
         .first()
     )
-    if not membership and not user.is_superuser:
+    if not membership:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a member of this organization")
-    if membership is None:
-        # Synthetic admin membership for superusers
-        membership = OrganizationMember(
-            organization_id=organization_id,
-            user_id=user.id,
-            role=MemberRole.ADMIN.value,
-            is_default=False,
-        )
     return membership
 
 
-def require_permission(permission: str):
-    def _dependency(membership: OrganizationMember = Depends(get_membership)) -> OrganizationMember:
-        if not role_has_permission(membership.role, permission):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+def require_roles(*roles: Role) -> Callable:
+    allowed = set(roles)
+
+    def dependency(
+        db: DbDep,
+        user: CurrentUser,
+        x_organization_id: Annotated[UUID | None, Header(alias="X-Organization-Id")] = None,
+    ) -> OrganizationMember:
+        if x_organization_id is None:
+            raise HTTPException(status_code=400, detail="X-Organization-Id header required")
+        membership = get_membership(db, user, x_organization_id)
+        if membership.role not in allowed and membership.role != Role.admin:
+            raise HTTPException(status_code=403, detail="Insufficient role permissions")
         return membership
 
-    return _dependency
-
-
-def permissions_for_role(role: str | MemberRole) -> list[str]:
-    try:
-        member_role = MemberRole(role)
-    except ValueError:
-        return []
-    return sorted(ROLE_PERMISSIONS.get(member_role, set()))
+    return dependency
