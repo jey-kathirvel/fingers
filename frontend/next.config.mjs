@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
-    const apiOrigin = process.env.API_INTERNAL_URL || "http://127.0.0.1:8090";
+    const apiOrigin = process.env.API_INTERNAL_URL || "http://127.0.0.1:8095";
     return [
       {
         source: "/api/:path*",

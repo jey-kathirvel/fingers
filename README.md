@@ -32,12 +32,12 @@ pip install -r requirements.txt
 export PYTHONPATH=.
 alembic upgrade head
 python -m app.db.seed
-uvicorn app.main:app --reload --port 8090
+uvicorn app.main:app --reload --port 8095
 
 # frontend
 cd ../frontend
 npm install
-API_INTERNAL_URL=http://127.0.0.1:8090 npm run dev -- --port 3090
+API_INTERNAL_URL=http://127.0.0.1:8095 npm run dev -- --port 3090
 ```
 
 Default seed admin (change in production):

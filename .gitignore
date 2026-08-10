@@ -2,10 +2,14 @@
 .env
 .venv/
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 node_modules/
+frontend/node_modules/
 frontend/.next/
 frontend/out/
 storage/*
@@ -13,5 +17,6 @@ storage/*
 logs/*
 !logs/.gitkeep
 *.log
+*.db
 .DS_Store
 backend/.venv/
