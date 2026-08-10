@@ -1,0 +1,276 @@
+from datetime import datetime, timezone
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.api.deps import CurrentUser, DbDep, get_membership, require_roles
+from app.core.config import get_settings
+from app.core.security import create_access_token, hash_password, verify_password
+from app.models import Brand, BrandGuidelines, Organization, OrganizationMember, Role, User
+from app.schemas import (
+    BrandCreate,
+    BrandOut,
+    BrandUpdate,
+    DashboardOverview,
+    HealthResponse,
+    LoginRequest,
+    MembershipOut,
+    OrganizationCreate,
+    OrganizationOut,
+    TokenResponse,
+    UserOut,
+)
+
+router = APIRouter()
+settings = get_settings()
+
+
+@router.get("/health", response_model=HealthResponse)
+def health(db: DbDep) -> HealthResponse:
+    db_status = "ok"
+    redis_status = "not_configured"
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        db_status = "error"
+    try:
+        import redis
+
+        client = redis.from_url(settings.redis_url, socket_connect_timeout=0.5)
+        client.ping()
+        redis_status = "ok"
+    except Exception:
+        redis_status = "unavailable"
+
+    overall = "ok" if db_status == "ok" else "degraded"
+    return HealthResponse(
+        status=overall,
+        app=settings.app_name,
+        version=settings.app_version,
+        environment=settings.environment,
+        database=db_status,
+        redis=redis_status,
+        timestamp=datetime.now(timezone.utc),
+    )
+
+
+@router.get("/version")
+def version() -> dict:
+    return {"app": settings.app_name, "version": settings.app_version, "environment": settings.environment}
+
+
+@router.post("/auth/login", response_model=TokenResponse)
+def login(payload: LoginRequest, db: DbDep) -> TokenResponse:
+    user = db.query(User).filter(User.email == payload.email.lower()).first()
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive")
+    token = create_access_token(str(user.id), {"email": user.email})
+    return TokenResponse(access_token=token)
+
+
+@router.get("/auth/me", response_model=UserOut)
+def me(user: CurrentUser) -> User:
+    return user
+
+
+@router.post("/auth/logout")
+def logout(user: CurrentUser) -> dict:
+    return {"ok": True, "user_id": str(user.id)}
+
+
+@router.get("/users/me/memberships", response_model=list[MembershipOut])
+def my_memberships(user: CurrentUser, db: DbDep) -> list[OrganizationMember]:
+    from sqlalchemy.orm import joinedload
+
+    return (
+        db.query(OrganizationMember)
+        .options(joinedload(OrganizationMember.organization))
+        .filter(OrganizationMember.user_id == user.id)
+        .all()
+    )
+
+
+@router.post("/organizations", response_model=OrganizationOut)
+def create_organization(payload: OrganizationCreate, user: CurrentUser, db: DbDep) -> Organization:
+    existing = db.query(Organization).filter(Organization.slug == payload.slug).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Organization slug already exists")
+    org = Organization(name=payload.name, slug=payload.slug)
+    db.add(org)
+    db.flush()
+    db.add(
+        OrganizationMember(
+            organization_id=org.id,
+            user_id=user.id,
+            role=Role.admin,
+        )
+    )
+    db.commit()
+    db.refresh(org)
+    return org
+
+
+@router.get("/organizations", response_model=list[OrganizationOut])
+def list_organizations(user: CurrentUser, db: DbDep) -> list[Organization]:
+    return (
+        db.query(Organization)
+        .join(OrganizationMember)
+        .filter(OrganizationMember.user_id == user.id)
+        .all()
+    )
+
+
+@router.get("/organizations/{organization_id}", response_model=OrganizationOut)
+def get_organization(organization_id: UUID, user: CurrentUser, db: DbDep) -> Organization:
+    get_membership(db, user, organization_id)
+    org = db.get(Organization, organization_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return org
+
+
+@router.get("/brands", response_model=list[BrandOut])
+def list_brands(
+    user: CurrentUser,
+    db: DbDep,
+    membership: OrganizationMember = Depends(require_roles(*Role)),
+) -> list[Brand]:
+    return (
+        db.query(Brand)
+        .filter(Brand.organization_id == membership.organization_id)
+        .order_by(Brand.created_at.asc())
+        .all()
+    )
+
+
+@router.post("/brands", response_model=BrandOut)
+def create_brand(
+    payload: BrandCreate,
+    user: CurrentUser,
+    db: DbDep,
+    membership: OrganizationMember = Depends(require_roles(Role.admin, Role.creator)),
+) -> Brand:
+    exists = (
+        db.query(Brand)
+        .filter(Brand.organization_id == membership.organization_id, Brand.slug == payload.slug)
+        .first()
+    )
+    if exists:
+        raise HTTPException(status_code=409, detail="Brand slug already exists in organization")
+    brand = Brand(organization_id=membership.organization_id, **payload.model_dump())
+    db.add(brand)
+    db.flush()
+    db.add(BrandGuidelines(brand_id=brand.id))
+    db.commit()
+    db.refresh(brand)
+    return brand
+
+
+@router.get("/brands/{brand_id}", response_model=BrandOut)
+def get_brand(
+    brand_id: UUID,
+    user: CurrentUser,
+    db: DbDep,
+    membership: OrganizationMember = Depends(require_roles(*Role)),
+) -> Brand:
+    brand = db.get(Brand, brand_id)
+    if not brand or brand.organization_id != membership.organization_id:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    return brand
+
+
+@router.patch("/brands/{brand_id}", response_model=BrandOut)
+def update_brand(
+    brand_id: UUID,
+    payload: BrandUpdate,
+    user: CurrentUser,
+    db: DbDep,
+    membership: OrganizationMember = Depends(require_roles(Role.admin, Role.creator)),
+) -> Brand:
+    brand = db.get(Brand, brand_id)
+    if not brand or brand.organization_id != membership.organization_id:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(brand, key, value)
+    db.commit()
+    db.refresh(brand)
+    return brand
+
+
+@router.get("/analytics/overview", response_model=DashboardOverview)
+def analytics_overview(
+    user: CurrentUser,
+    db: DbDep,
+    membership: OrganizationMember = Depends(require_roles(*Role)),
+) -> DashboardOverview:
+    brands_count = db.query(Brand).filter(Brand.organization_id == membership.organization_id).count()
+    return DashboardOverview(
+        followers=0,
+        reach=0,
+        impressions=0,
+        engagement_rate=0.0,
+        clicks=0,
+        leads=0,
+        published_posts=0,
+        response_backlog=0,
+        brands_count=brands_count,
+        connected_accounts=0,
+        failed_posts=0,
+        scheduled_posts=0,
+        approval_items=0,
+        integration_health=[
+            {"platform": "instagram", "status": "not_connected"},
+            {"platform": "facebook", "status": "not_connected"},
+            {"platform": "linkedin", "status": "not_connected"},
+        ],
+        action_queue=[
+            {
+                "id": "welcome",
+                "type": "setup",
+                "title": "Connect your first social account",
+                "priority": "medium",
+            },
+            {
+                "id": "brand",
+                "type": "setup",
+                "title": "Complete brand voice guidelines",
+                "priority": "low",
+            },
+        ],
+        recommendations=[
+            {
+                "id": "rec-1",
+                "title": "Start with AI Content Studio",
+                "detail": "Generate platform-specific drafts once Phase 2 is enabled.",
+            }
+        ],
+    )
+
+
+@router.get("/integration-health")
+def integration_health(
+    user: CurrentUser,
+    membership: OrganizationMember = Depends(require_roles(*Role)),
+) -> dict:
+    return {
+        "organization_id": str(membership.organization_id),
+        "platforms": [
+            {"platform": "instagram", "status": "not_connected"},
+            {"platform": "facebook", "status": "not_connected"},
+            {"platform": "linkedin", "status": "not_connected"},
+            {"platform": "youtube", "status": "planned"},
+            {"platform": "x", "status": "planned"},
+        ],
+    }
+
+
+@router.get("/audit")
+def audit_placeholder(
+    user: CurrentUser,
+    membership: OrganizationMember = Depends(require_roles(Role.admin, Role.analyst)),
+) -> dict:
+    return {"items": [], "organization_id": str(membership.organization_id)}

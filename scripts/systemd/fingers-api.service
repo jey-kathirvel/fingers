@@ -1,0 +1,16 @@
+[Unit]
+Description=Fingers API (FastAPI)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/fingers/backend
+EnvironmentFile=/opt/fingers/.env
+Environment=PYTHONPATH=/opt/fingers/backend
+ExecStart=/opt/fingers/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8090
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+# Fingers
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+node_modules/
+frontend/.next/
+frontend/out/
+storage/*
+!storage/.gitkeep
+logs/*
+!logs/.gitkeep
+*.log
+.DS_Store
+backend/.venv/
