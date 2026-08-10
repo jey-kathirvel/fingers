@@ -8,7 +8,7 @@ User=root
 WorkingDirectory=/opt/fingers/backend
 EnvironmentFile=/opt/fingers/.env
 Environment=PYTHONPATH=/opt/fingers/backend
-ExecStart=/opt/fingers/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8090
+ExecStart=/opt/fingers/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8095
 Restart=always
 RestartSec=3
 

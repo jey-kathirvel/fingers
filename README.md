@@ -5,7 +5,7 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 ## Stack
 
 - **Frontend:** Next.js 14 + Tailwind (port `3090`)
-- **Backend:** FastAPI (port `8090`)
+- **Backend:** FastAPI (port `8095`; `8090` is reserved by another app on this VPS)
 - **Worker:** heartbeat/scheduler placeholder
 - **Database:** PostgreSQL (`fingers_db`)
 

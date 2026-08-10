@@ -7,14 +7,31 @@ REPO_SRC="${REPO_SRC:-$(cd "$(dirname "$0")/.." && pwd)}"
 
 echo "Deploying from ${REPO_SRC} -> ${APP_ROOT}"
 mkdir -p "${APP_ROOT}"/{logs,storage}
+
+# Preserve local secrets across syncs
+ENV_BAK=""
+if [[ -f "${APP_ROOT}/.env" ]]; then
+  ENV_BAK=$(mktemp)
+  cp "${APP_ROOT}/.env" "${ENV_BAK}"
+fi
+
 rsync -a --delete \
   --exclude '.git' \
+  --exclude '.env' \
+  --exclude '.env.created_credentials' \
   --exclude 'frontend/node_modules' \
   --exclude 'frontend/.next' \
   --exclude 'backend/.venv' \
   --exclude '.venv' \
   --exclude '__pycache__' \
+  --exclude 'storage/backups' \
   "${REPO_SRC}/" "${APP_ROOT}/"
+
+if [[ -n "${ENV_BAK}" ]]; then
+  cp "${ENV_BAK}" "${APP_ROOT}/.env"
+  rm -f "${ENV_BAK}"
+  chmod 600 "${APP_ROOT}/.env"
+fi
 
 if [[ ! -f "${APP_ROOT}/.env" ]]; then
   echo "Missing ${APP_ROOT}/.env" >&2
@@ -45,7 +62,7 @@ if ! command -v npm >/dev/null; then
   exit 1
 fi
 npm ci
-API_INTERNAL_URL=http://127.0.0.1:8090 npm run build
+API_INTERNAL_URL=http://127.0.0.1:8095 npm run build
 
 install -m 644 "${APP_ROOT}/scripts/systemd/fingers-api.service" /etc/systemd/system/fingers-api.service
 install -m 644 "${APP_ROOT}/scripts/systemd/fingers-web.service" /etc/systemd/system/fingers-web.service

@@ -18,11 +18,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    role_enum = postgresql.ENUM(
-        "admin", "creator", "reviewer", "approver", "analyst", name="role_enum", create_type=True
-    )
-    role_enum.create(op.get_bind(), checkfirst=True)
-
     op.create_table(
         "users",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
@@ -47,9 +42,19 @@ def upgrade() -> None:
     op.create_table(
         "organization_members",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("role", role_enum, nullable=False),
+        sa.Column(
+            "organization_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "user_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column("role", sa.String(32), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")),
         sa.UniqueConstraint("organization_id", "user_id", name="uq_org_user"),
     )
@@ -57,7 +62,12 @@ def upgrade() -> None:
     op.create_table(
         "brands",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("organization_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "organization_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("organizations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("slug", sa.String(100), nullable=False),
         sa.Column("description", sa.Text()),
@@ -76,7 +86,13 @@ def upgrade() -> None:
     op.create_table(
         "brand_guidelines",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("brand_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("brands.id", ondelete="CASCADE"), nullable=False, unique=True),
+        sa.Column(
+            "brand_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("brands.id", ondelete="CASCADE"),
+            nullable=False,
+            unique=True,
+        ),
         sa.Column("products_services", sa.Text()),
         sa.Column("differentiators", sa.Text()),
         sa.Column("approved_keywords", sa.Text()),
@@ -119,4 +135,3 @@ def downgrade() -> None:
     op.drop_table("organization_members")
     op.drop_table("organizations")
     op.drop_table("users")
-    op.execute("DROP TYPE IF EXISTS role_enum")

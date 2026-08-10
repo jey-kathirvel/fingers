@@ -7,8 +7,8 @@ cat > /etc/apache2/sites-available/fingers.ads-ai.in.conf <<'CONF'
     ServerName fingers.ads-ai.in
 
     ProxyPreserveHost On
-    ProxyPass /api http://127.0.0.1:8090/api
-    ProxyPassReverse /api http://127.0.0.1:8090/api
+    ProxyPass /api http://127.0.0.1:8095/api
+    ProxyPassReverse /api http://127.0.0.1:8095/api
     ProxyPass / http://127.0.0.1:3090/
     ProxyPassReverse / http://127.0.0.1:3090/
 
@@ -30,8 +30,8 @@ if [[ -f /etc/apache2/sites-available/fingers.ads-ai.in-le-ssl.conf ]]; then
 
     ProxyPreserveHost On
     RequestHeader set X-Forwarded-Proto "https"
-    ProxyPass /api http://127.0.0.1:8090/api
-    ProxyPassReverse /api http://127.0.0.1:8090/api
+    ProxyPass /api http://127.0.0.1:8095/api
+    ProxyPassReverse /api http://127.0.0.1:8095/api
     ProxyPass / http://127.0.0.1:3090/
     ProxyPassReverse / http://127.0.0.1:3090/
 

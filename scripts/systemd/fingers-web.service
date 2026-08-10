@@ -9,7 +9,7 @@ WorkingDirectory=/opt/fingers/frontend
 EnvironmentFile=/opt/fingers/.env
 Environment=PORT=3090
 Environment=HOSTNAME=127.0.0.1
-Environment=API_INTERNAL_URL=http://127.0.0.1:8090
+Environment=API_INTERNAL_URL=http://127.0.0.1:8095
 ExecStart=/usr/bin/npm run start -- --hostname 127.0.0.1 --port 3090
 Restart=always
 RestartSec=3
