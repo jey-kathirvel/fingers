@@ -303,3 +303,74 @@ class CalendarItemOut(BaseModel):
     content_item_id: UUID
     brand_id: UUID
     account_name: str | None = None
+
+
+class AiReplyDraftOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    interaction_id: UUID
+    body: str
+    tone: str | None
+    provider: str
+    status: str
+    created_by: UUID | None
+    external_reply_id: str | None
+    sent_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class InteractionOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    brand_id: UUID
+    social_account_id: UUID | None
+    platform: str
+    interaction_type: str
+    external_id: str
+    author_name: str | None
+    author_handle: str | None
+    author_external_id: str | None
+    body: str
+    permalink: str | None
+    sentiment: str
+    intent: str
+    priority: str
+    lead_probability: int
+    status: str
+    assigned_to: UUID | None
+    content_item_id: UUID | None
+    scheduled_post_id: UUID | None
+    parent_external_id: str | None
+    received_at: datetime
+    responded_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    drafts: list[AiReplyDraftOut] = Field(default_factory=list)
+
+
+class InteractionUpdate(BaseModel):
+    status: str | None = None
+    priority: str | None = None
+    sentiment: str | None = None
+    intent: str | None = None
+    assigned_to: UUID | None = None
+
+
+class ReplyDraftRequest(BaseModel):
+    tone: str = "helpful"
+    instruction: str | None = None
+
+
+class ApproveSendRequest(BaseModel):
+    draft_id: UUID | None = None
+    body: str | None = None
+
+
+class InboxStatsOut(BaseModel):
+    total: int
+    new_count: int
+    draft_reply_count: int
+    responded_count: int
+    high_priority: int
+    backlog: int

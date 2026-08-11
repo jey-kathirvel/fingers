@@ -27,14 +27,21 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 - Media asset library (prompt/reference records)
 - OpenRouter (preferred) or OpenAI when API keys are set; otherwise local Social Media Engineer engine
 
-## Phase 3
+## Phase 4
 
+<<<<<<< HEAD
 - Social account connect (simulation or live token)
 - Schedule posts + calendar view
 - Publish now / retry / cancel
 - Worker processes due posts with idempotency + publishing logs
 - **LinkedIn live**: OAuth connect + Posts API publish when `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` are set
 - Meta/Instagram: simulation only for now (live Meta deferred)
+=======
+- Unified engagement inbox (comments, messages, mentions, reviews)
+- Classification: sentiment, intent, priority, lead probability
+- AI reply suggestions with **Approve & Send**
+- Inbox sync (simulation feed for connected accounts; worker refreshes periodically)
+>>>>>>> origin/cursor/fingers-phase4-engagement-32b4
 
 ## Local development
 
