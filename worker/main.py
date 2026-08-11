@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fingers worker: due posts, inbox sync, analytics sync."""
+"""Fingers worker: due posts, inbox sync, analytics, automations, listening."""
 
 import sys
 import time
@@ -11,7 +11,9 @@ sys.path.insert(0, str(ROOT / "backend"))
 from app.core.config import get_settings  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.services.analytics import sync_analytics  # noqa: E402
+from app.services.automations import run_automations  # noqa: E402
 from app.services.engagement import sync_simulated_inbox  # noqa: E402
+from app.services.listening import sync_simulated_mentions  # noqa: E402
 from app.social.publisher import publish_due_posts  # noqa: E402
 
 
@@ -30,6 +32,18 @@ def main() -> None:
                 created = sync_simulated_inbox(db)
                 if created:
                     print(f"[fingers-worker] synced {created} inbox interaction(s)", flush=True)
+            if cycles % 8 == 1:
+                auto = run_automations(db)
+                if auto["runs"]:
+                    print(
+                        f"[fingers-worker] automations rules={auto['rules_evaluated']} "
+                        f"runs={auto['runs']} ok={auto['success']} fail={auto['failed']}",
+                        flush=True,
+                    )
+            if cycles % 12 == 1:
+                mentions = sync_simulated_mentions(db)
+                if mentions:
+                    print(f"[fingers-worker] listening synced {mentions} mention(s)", flush=True)
             if cycles % 15 == 1:
                 stats = sync_analytics(db, days=30)
                 print(

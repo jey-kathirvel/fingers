@@ -558,3 +558,111 @@ class RecommendationGenerateRequest(BaseModel):
 
 class RecommendationUpdate(BaseModel):
     status: str
+
+
+class AutomationRuleCreate(BaseModel):
+    brand_id: UUID | None = None
+    name: str
+    description: str | None = None
+    enabled: bool = True
+    trigger_type: str
+    trigger_config_json: str | None = None
+    action_type: str
+    action_config_json: str | None = None
+
+
+class AutomationRuleUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    enabled: bool | None = None
+    trigger_type: str | None = None
+    trigger_config_json: str | None = None
+    action_type: str | None = None
+    action_config_json: str | None = None
+
+
+class AutomationRuleOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    brand_id: UUID | None
+    name: str
+    description: str | None
+    enabled: bool
+    trigger_type: str
+    trigger_config_json: str | None
+    action_type: str
+    action_config_json: str | None
+    last_run_at: datetime | None
+    created_by: UUID | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AutomationRunOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    rule_id: UUID
+    status: str
+    trigger_entity_type: str | None
+    trigger_entity_id: str | None
+    result_json: str | None
+    error_message: str | None
+    created_at: datetime
+
+
+class AutomationRunSummary(BaseModel):
+    rules_evaluated: int
+    runs: int
+    success: int
+    failed: int
+
+
+class ListeningTermCreate(BaseModel):
+    brand_id: UUID
+    term: str
+    term_type: str = "custom"
+    enabled: bool = True
+
+
+class ListeningTermUpdate(BaseModel):
+    term: str | None = None
+    term_type: str | None = None
+    enabled: bool | None = None
+
+
+class ListeningTermOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    brand_id: UUID
+    term: str
+    term_type: str
+    enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class SocialMentionOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    brand_id: UUID
+    term_id: UUID | None
+    platform: str
+    author_name: str | None
+    author_handle: str | None
+    body: str
+    permalink: str | None
+    sentiment: str
+    share_weight: float
+    source: str
+    external_id: str
+    mentioned_at: datetime
+    created_at: datetime
+
+
+class ListeningSummaryOut(BaseModel):
+    window_days: int
+    mention_count: int
+    by_sentiment: dict[str, int]
+    by_term_type: dict[str, float]
+    by_platform: dict[str, int]
+    share_of_voice: list[dict]

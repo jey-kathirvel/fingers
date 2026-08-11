@@ -555,3 +555,97 @@ class AiRecommendation(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class AutomationRule(Base):
+    __tablename__ = "automation_rules"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    brand_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("brands.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    trigger_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    trigger_config_json: Mapped[str | None] = mapped_column(Text)
+    action_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    action_config_json: Mapped[str | None] = mapped_column(Text)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    runs: Mapped[list["AutomationRun"]] = relationship(
+        back_populates="rule", cascade="all, delete-orphan"
+    )
+
+
+class AutomationRun(Base):
+    __tablename__ = "automation_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    rule_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("automation_rules.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(32), default="success", nullable=False)
+    trigger_entity_type: Mapped[str | None] = mapped_column(String(64))
+    trigger_entity_id: Mapped[str | None] = mapped_column(String(100))
+    result_json: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    rule: Mapped[AutomationRule] = relationship(back_populates="runs")
+
+
+class ListeningTerm(Base):
+    __tablename__ = "listening_terms"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    brand_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("brands.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    term: Mapped[str] = mapped_column(String(255), nullable=False)
+    term_type: Mapped[str] = mapped_column(String(32), default="custom", nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "brand_id", "term", name="uq_listening_term"),
+    )
+
+
+class SocialMention(Base):
+    __tablename__ = "social_mentions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    brand_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("brands.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    term_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("listening_terms.id", ondelete="SET NULL"), index=True
+    )
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    author_name: Mapped[str | None] = mapped_column(String(255))
+    author_handle: Mapped[str | None] = mapped_column(String(255))
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    permalink: Mapped[str | None] = mapped_column(String(1000))
+    sentiment: Mapped[str] = mapped_column(String(32), default="neutral", nullable=False)
+    share_weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    source: Mapped[str] = mapped_column(String(32), default="simulation", nullable=False)
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    mentioned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "platform", "external_id", name="uq_mention_external"),
+    )
