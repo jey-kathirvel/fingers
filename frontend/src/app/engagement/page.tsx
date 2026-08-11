@@ -184,6 +184,24 @@ export default function EngagementPage() {
     }
   }
 
+  async function convertLead() {
+    if (!selected) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const lead = await api<{ id: string; score: number }>(`/api/interactions/${selected.id}/convert-lead`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setMessage(`Lead created (score ${lead.score}) — open Leads to continue follow-up`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Convert failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <AppShell title="Engagement" subtitle="Unified inbox for comments, messages, mentions and reviews">
       <div className="space-y-4">
@@ -302,6 +320,14 @@ export default function EngagementPage() {
                     onClick={() => void setStatus("closed")}
                   >
                     Close
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="rounded-lg border border-ink/10 px-3 py-2 text-sm"
+                    onClick={() => void convertLead()}
+                  >
+                    Convert to lead
                   </button>
                 </div>
 

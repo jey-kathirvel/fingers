@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser, DbDep, get_membership, require_roles
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
-from app.models import Brand, BrandGuidelines, ContentItem, ContentStatus, Organization, OrganizationMember, Role, ScheduledPost, SocialAccount, SocialInteraction, User
+from app.models import Brand, BrandGuidelines, ContentItem, ContentStatus, Lead, Organization, OrganizationMember, Role, ScheduledPost, SocialAccount, SocialInteraction, User
 from app.schemas import (
     BrandCreate,
     BrandOut,
@@ -281,6 +281,7 @@ def analytics_overview(
     from app.services import analytics as analytics_service
 
     kpi = analytics_service.summarize_overview(db, membership.organization_id)
+    leads_count = db.query(Lead).filter(Lead.organization_id == membership.organization_id).count()
 
     return DashboardOverview(
         followers=kpi["followers"],
@@ -288,7 +289,7 @@ def analytics_overview(
         impressions=kpi["impressions"],
         engagement_rate=kpi["engagement_rate"],
         clicks=kpi["clicks"],
-        leads=kpi["leads"],
+        leads=max(kpi["leads"], leads_count),
         published_posts=published_posts,
         response_backlog=response_backlog,
         brands_count=brands_count,
@@ -364,7 +365,7 @@ def integration_health(
         "ai_provider": settings.llm_provider,
         "meta_configured": settings.meta_configured,
         "linkedin_configured": settings.linkedin_configured,
-        "phase": "5",
+        "phase": "6",
     }
 
 
