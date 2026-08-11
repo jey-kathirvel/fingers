@@ -6,10 +6,10 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 
 - **Frontend:** Next.js 14 + Tailwind (port `3090`)
 - **Backend:** FastAPI (port `8095`; `8090` is reserved by another app on this VPS)
-- **Worker:** heartbeat/scheduler placeholder
+- **Worker:** due-post publisher with retries every ~20s
 - **Database:** PostgreSQL (`fingers_db`)
 
-## Phase 1 (this release)
+## Phase 1
 
 - Auth (login/logout/session token)
 - Organizations + memberships
@@ -26,6 +26,14 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 - Draft → review → approved workflow
 - Media asset library (prompt/reference records)
 - OpenRouter (preferred) or OpenAI when API keys are set; otherwise local Social Media Engineer engine
+
+## Phase 3
+
+- Social account connect (simulation or live token)
+- Schedule posts + calendar view
+- Publish now / retry / cancel
+- Worker processes due posts with idempotency + publishing logs
+- Meta + LinkedIn adapters (simulation by default; live Graph/API stubs until OAuth credentials are wired)
 
 ## Local development
 
@@ -69,3 +77,4 @@ Backup: `./scripts/backup-db.sh`
 
 - API: `GET /api/health`
 - Version: `GET /api/version`
+- Integrations: `GET /api/integration-health`

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser, DbDep, get_membership, require_roles
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
-from app.models import Brand, BrandGuidelines, ContentItem, ContentStatus, Organization, OrganizationMember, Role, User
+from app.models import Brand, BrandGuidelines, ContentItem, ContentStatus, Organization, OrganizationMember, Role, ScheduledPost, SocialAccount, User
 from app.schemas import (
     BrandCreate,
     BrandOut,
@@ -226,6 +226,50 @@ def analytics_overview(
         )
         .count()
     )
+    connected_accounts = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.organization_id == membership.organization_id,
+            SocialAccount.status == "connected",
+        )
+        .count()
+    )
+    scheduled_posts = (
+        db.query(ScheduledPost)
+        .filter(
+            ScheduledPost.organization_id == membership.organization_id,
+            ScheduledPost.status == "scheduled",
+        )
+        .count()
+    )
+    failed_posts = (
+        db.query(ScheduledPost)
+        .filter(
+            ScheduledPost.organization_id == membership.organization_id,
+            ScheduledPost.status == "failed",
+        )
+        .count()
+    )
+    published_posts = (
+        db.query(ScheduledPost)
+        .filter(
+            ScheduledPost.organization_id == membership.organization_id,
+            ScheduledPost.status == "published",
+        )
+        .count()
+    )
+    accounts = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.organization_id == membership.organization_id,
+            SocialAccount.status == "connected",
+        )
+        .all()
+    )
+    health_map = {p: "not_connected" for p in ["instagram", "facebook", "linkedin"]}
+    for account in accounts:
+        health_map[account.platform] = f"{account.connection_mode}:{account.status}"
+
     return DashboardOverview(
         followers=0,
         reach=0,
@@ -233,38 +277,40 @@ def analytics_overview(
         engagement_rate=0.0,
         clicks=0,
         leads=0,
-        published_posts=0,
+        published_posts=published_posts,
         response_backlog=0,
         brands_count=brands_count,
-        connected_accounts=0,
-        failed_posts=0,
-        scheduled_posts=0,
+        connected_accounts=connected_accounts,
+        failed_posts=failed_posts,
+        scheduled_posts=scheduled_posts,
         approval_items=review_count,
         draft_count=draft_count,
-        integration_health=[
-            {"platform": "instagram", "status": "not_connected"},
-            {"platform": "facebook", "status": "not_connected"},
-            {"platform": "linkedin", "status": "not_connected"},
-        ],
+        integration_health=[{"platform": k, "status": v} for k, v in health_map.items()],
         action_queue=[
+            {
+                "id": "failed",
+                "type": "publishing",
+                "title": f"{failed_posts} failed publish job(s)",
+                "priority": "high" if failed_posts else "low",
+            },
+            {
+                "id": "scheduled",
+                "type": "publishing",
+                "title": f"{scheduled_posts} post(s) scheduled",
+                "priority": "medium" if scheduled_posts else "low",
+            },
             {
                 "id": "drafts",
                 "type": "content",
                 "title": f"{draft_count} draft(s) in AI Studio",
                 "priority": "medium" if draft_count else "low",
             },
-            {
-                "id": "approvals",
-                "type": "workflow",
-                "title": f"{review_count} item(s) awaiting approval",
-                "priority": "high" if review_count else "low",
-            },
         ],
         recommendations=[
             {
-                "id": "rec-studio",
-                "title": "Generate platform-specific variants",
-                "detail": "Open AI Studio, describe a goal, and create LinkedIn/Instagram/Facebook drafts.",
+                "id": "rec-publish",
+                "title": "Schedule approved variants",
+                "detail": "Connect simulation accounts in Integrations, then schedule from Publishing.",
             }
         ],
     )
@@ -273,17 +319,34 @@ def analytics_overview(
 @router.get("/integration-health")
 def integration_health(
     user: CurrentUser,
+    db: DbDep,
     membership: OrganizationMember = Depends(require_roles(*Role)),
 ) -> dict:
+    accounts = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.organization_id == membership.organization_id,
+            SocialAccount.status == "connected",
+        )
+        .all()
+    )
+    by_platform = {p: "not_connected" for p in ["instagram", "facebook", "linkedin", "youtube", "x"]}
+    for account in accounts:
+        by_platform[account.platform] = f"{account.connection_mode}:{account.status}"
+    for planned in ("youtube", "x"):
+        if by_platform[planned] == "not_connected":
+            by_platform[planned] = "planned"
+    from app.core.config import get_settings
+
+    settings = get_settings()
     return {
         "organization_id": str(membership.organization_id),
-        "platforms": [
-            {"platform": "instagram", "status": "not_connected"},
-            {"platform": "facebook", "status": "not_connected"},
-            {"platform": "linkedin", "status": "not_connected"},
-            {"platform": "youtube", "status": "planned"},
-            {"platform": "x", "status": "planned"},
-        ],
+        "platforms": [{"platform": k, "status": v} for k, v in by_platform.items()],
+        "connected_accounts": len(accounts),
+        "ai_provider": settings.llm_provider,
+        "meta_configured": settings.meta_configured,
+        "linkedin_configured": settings.linkedin_configured,
+        "phase": "3",
     }
 
 
