@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -378,3 +379,79 @@ class AiReplyDraft(Base):
     )
 
     interaction: Mapped[SocialInteraction] = relationship(back_populates="drafts")
+
+
+class AccountMetric(Base):
+    __tablename__ = "account_metrics"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    brand_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("brands.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    social_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("social_accounts.id", ondelete="SET NULL"), index=True
+    )
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    metric_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    followers: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reach: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    impressions: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    profile_visits: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    website_clicks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    likes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    comments: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    shares: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    saves: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    video_views: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    leads: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "brand_id",
+            "platform",
+            "social_account_id",
+            "metric_date",
+            name="uq_account_metric_day",
+        ),
+    )
+
+
+class PostMetric(Base):
+    __tablename__ = "post_metrics"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    brand_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("brands.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    content_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_items.id", ondelete="SET NULL"), index=True
+    )
+    scheduled_post_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("scheduled_posts.id", ondelete="SET NULL"), index=True
+    )
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    impressions: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reach: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    likes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    comments: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    shares: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    saves: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    clicks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    video_views: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    engagement_rate: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "scheduled_post_id", name="uq_post_metric_scheduled"),
+    )

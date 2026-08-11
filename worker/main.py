@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fingers worker: due posts + engagement inbox sync."""
+"""Fingers worker: due posts, inbox sync, analytics sync."""
 
 import sys
 import time
@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from app.core.config import get_settings  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
+from app.services.analytics import sync_analytics  # noqa: E402
 from app.services.engagement import sync_simulated_inbox  # noqa: E402
 from app.social.publisher import publish_due_posts  # noqa: E402
 
@@ -24,12 +25,17 @@ def main() -> None:
             count = publish_due_posts(db, limit=25)
             if count:
                 print(f"[fingers-worker] published/processed {count} due post(s)", flush=True)
-            # Sync simulation inbox roughly every ~2 minutes
             cycles += 1
             if cycles % 6 == 1:
                 created = sync_simulated_inbox(db)
                 if created:
                     print(f"[fingers-worker] synced {created} inbox interaction(s)", flush=True)
+            if cycles % 15 == 1:
+                stats = sync_analytics(db, days=30)
+                print(
+                    f"[fingers-worker] analytics sync posts={stats['post_metrics']} accounts={stats['account_metrics']}",
+                    flush=True,
+                )
             if not count:
                 print("[fingers-worker] heartbeat ok", flush=True)
         except Exception as exc:  # noqa: BLE001
