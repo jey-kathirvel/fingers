@@ -25,7 +25,7 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 - Platform-neutral content items + channel versions
 - Draft → review → approved workflow
 - Media asset library (prompt/reference records)
-- OpenAI provider when `OPENAI_API_KEY` is set; otherwise local Social Media Engineer engine
+- OpenRouter (preferred) or OpenAI when API keys are set; otherwise local Social Media Engineer engine
 
 ## Local development
 

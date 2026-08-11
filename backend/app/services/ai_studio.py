@@ -232,25 +232,63 @@ def local_rewrite(text: str, platform: str, instruction: str, brand: Brand) -> d
     return {"body": rewritten, "provider": "local", **_score(platform, rewritten)}
 
 
-async def openai_chat(messages: list[dict[str, str]], model: str | None = None) -> str:
+def _extract_json(text: str) -> dict[str, Any]:
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if fence:
+        return json.loads(fence.group(1))
+    start = text.find("{")
+    end = text.rfind("}")
+    if start >= 0 and end > start:
+        return json.loads(text[start : end + 1])
+    raise ValueError("No JSON object found in model response")
+
+
+async def llm_chat(messages: list[dict[str, str]], model: str | None = None) -> tuple[str, str]:
+    """Call configured LLM provider. Returns (content, provider_name)."""
     settings = get_settings()
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY not configured")
-    payload = {
-        "model": model or settings.openai_model,
+    provider = settings.llm_provider
+    if provider == "local":
+        raise RuntimeError("No remote LLM provider configured")
+
+    if provider == "openrouter":
+        base = settings.openrouter_base_url.rstrip("/")
+        api_key = settings.openrouter_api_key
+        chosen_model = model or settings.openrouter_model
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": settings.openrouter_site_url,
+            "X-Title": settings.openrouter_app_name,
+        }
+    else:
+        base = settings.openai_base_url.rstrip("/")
+        api_key = settings.openai_api_key
+        chosen_model = model or settings.openai_model
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+
+    payload: dict[str, Any] = {
+        "model": chosen_model,
         "messages": messages,
         "temperature": 0.7,
-        "response_format": {"type": "json_object"},
     }
-    headers = {
-        "Authorization": f"Bearer {settings.openai_api_key}",
-        "Content-Type": "application/json",
-    }
-    async with httpx.AsyncClient(timeout=60) as client:
-        res = await client.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    # Prefer JSON mode when supported; OpenRouter free models may reject it.
+    payload_with_json = {**payload, "response_format": {"type": "json_object"}}
+
+    async with httpx.AsyncClient(timeout=90) as client:
+        res = await client.post(f"{base}/chat/completions", headers=headers, json=payload_with_json)
+        if res.status_code >= 400:
+            res = await client.post(f"{base}/chat/completions", headers=headers, json=payload)
         res.raise_for_status()
         data = res.json()
-        return data["choices"][0]["message"]["content"]
+        return data["choices"][0]["message"]["content"], provider
 
 
 async def generate_content(
@@ -261,7 +299,7 @@ async def generate_content(
     platforms: list[str],
 ) -> dict[str, Any]:
     settings = get_settings()
-    if not settings.openai_api_key:
+    if settings.llm_provider == "local":
         return local_generate(brand, guidelines, topic, objective, platforms)
 
     ctx = _brand_context(brand, guidelines)
@@ -279,14 +317,14 @@ async def generate_content(
         ),
     }
     try:
-        raw = await openai_chat(
+        raw, provider = await llm_chat(
             [
                 {"role": "system", "content": "You are Fingers Social Media Engineer. Reply with JSON only."},
                 {"role": "user", "content": json.dumps(prompt)},
             ]
         )
-        data = json.loads(raw)
-        data["provider"] = "openai"
+        data = _extract_json(raw)
+        data["provider"] = provider
         if "versions" not in data:
             raise ValueError("missing versions")
         return data
@@ -298,11 +336,11 @@ async def generate_content(
 
 async def generate_ideas(brand: Brand, guidelines: BrandGuidelines | None, count: int = 5) -> dict[str, Any]:
     settings = get_settings()
-    if not settings.openai_api_key:
+    if settings.llm_provider == "local":
         return {"ideas": local_ideas(brand, guidelines, count), "provider": "local"}
     ctx = _brand_context(brand, guidelines)
     try:
-        raw = await openai_chat(
+        raw, provider = await llm_chat(
             [
                 {
                     "role": "system",
@@ -314,8 +352,8 @@ async def generate_ideas(brand: Brand, guidelines: BrandGuidelines | None, count
                 },
             ]
         )
-        data = json.loads(raw)
-        data["provider"] = "openai"
+        data = _extract_json(raw)
+        data["provider"] = provider
         return data
     except Exception:
         return {"ideas": local_ideas(brand, guidelines, count), "provider": "local_fallback"}
@@ -328,12 +366,15 @@ async def rewrite_content(
     brand: Brand,
 ) -> dict[str, Any]:
     settings = get_settings()
-    if not settings.openai_api_key:
+    if settings.llm_provider == "local":
         return local_rewrite(text, platform, instruction, brand)
     try:
-        raw = await openai_chat(
+        raw, provider = await llm_chat(
             [
-                {"role": "system", "content": "Return JSON {body, score_clarity, score_brand_fit, score_cta, score_platform_fit}"},
+                {
+                    "role": "system",
+                    "content": "Return JSON {body, score_clarity, score_brand_fit, score_cta, score_platform_fit}",
+                },
                 {
                     "role": "user",
                     "content": json.dumps(
@@ -348,8 +389,8 @@ async def rewrite_content(
                 },
             ]
         )
-        data = json.loads(raw)
-        data["provider"] = "openai"
+        data = _extract_json(raw)
+        data["provider"] = provider
         return data
     except Exception:
         out = local_rewrite(text, platform, instruction, brand)

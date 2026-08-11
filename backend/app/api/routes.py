@@ -45,7 +45,7 @@ def health(db: DbDep) -> HealthResponse:
         redis_status = "unavailable"
 
     overall = "ok" if db_status == "ok" else "degraded"
-    ai_provider = "openai" if settings.openai_api_key else "local"
+    ai_provider = settings.llm_provider
     return HealthResponse(
         status=overall,
         app=settings.app_name,
