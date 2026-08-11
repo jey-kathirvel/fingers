@@ -374,3 +374,51 @@ class InboxStatsOut(BaseModel):
     responded_count: int
     high_priority: int
     backlog: int
+
+
+class AnalyticsSyncOut(BaseModel):
+    post_metrics: int
+    account_metrics: int
+
+
+class AccountMetricTrendOut(BaseModel):
+    date: str
+    followers: int
+    reach: int
+    impressions: int
+    clicks: int
+    likes: int
+    comments: int
+    shares: int
+    leads: int
+    engagement_rate: float
+
+
+class PlatformBreakdownOut(BaseModel):
+    platform: str
+    followers: int
+    reach: int
+    impressions: int
+    clicks: int
+    likes: int
+    comments: int
+    leads: int
+    engagement_rate: float
+
+
+class PostMetricOut(BaseModel):
+    id: str
+    platform: str
+    title: str | None = None
+    content_item_id: str | None = None
+    scheduled_post_id: str | None = None
+    impressions: int
+    reach: int
+    likes: int
+    comments: int
+    shares: int
+    saves: int
+    clicks: int
+    video_views: int
+    engagement_rate: float
+    measured_at: str

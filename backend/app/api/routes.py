@@ -278,13 +278,17 @@ def analytics_overview(
     for account in accounts:
         health_map[account.platform] = f"{account.connection_mode}:{account.status}"
 
+    from app.services import analytics as analytics_service
+
+    kpi = analytics_service.summarize_overview(db, membership.organization_id)
+
     return DashboardOverview(
-        followers=0,
-        reach=0,
-        impressions=0,
-        engagement_rate=0.0,
-        clicks=0,
-        leads=0,
+        followers=kpi["followers"],
+        reach=kpi["reach"],
+        impressions=kpi["impressions"],
+        engagement_rate=kpi["engagement_rate"],
+        clicks=kpi["clicks"],
+        leads=kpi["leads"],
         published_posts=published_posts,
         response_backlog=response_backlog,
         brands_count=brands_count,
@@ -322,9 +326,9 @@ def analytics_overview(
         ],
         recommendations=[
             {
-                "id": "rec-inbox",
-                "title": "Clear the engagement backlog",
-                "detail": "Sync the inbox, draft AI replies, then Approve & Send from Engagement.",
+                "id": "rec-analytics",
+                "title": "Review Analytics trends",
+                "detail": "Sync metrics and compare platform/post performance under Analytics.",
             }
         ],
     )
@@ -360,7 +364,7 @@ def integration_health(
         "ai_provider": settings.llm_provider,
         "meta_configured": settings.meta_configured,
         "linkedin_configured": settings.linkedin_configured,
-        "phase": "4",
+        "phase": "5",
     }
 
 
