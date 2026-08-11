@@ -35,11 +35,13 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     openai_base_url: str = "https://api.openai.com/v1"
 
-    # Optional Phase 3 social credentials (simulation works without these)
+    # Optional Phase 3 social credentials (LinkedIn live enabled; Meta deferred)
     meta_app_id: str | None = None
     meta_app_secret: str | None = None
     linkedin_client_id: str | None = None
     linkedin_client_secret: str | None = None
+    linkedin_redirect_uri: str = "https://fingers.ads-ai.in/api/integrations/linkedin/callback"
+    linkedin_api_version: str = "202507"
 
     @property
     def cors_origin_list(self) -> list[str]:

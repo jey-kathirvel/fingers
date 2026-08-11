@@ -47,13 +47,12 @@ class MetaAdapter:
         self.platform = target
 
     def publish(self, account: SocialAccount, version: ContentVersion) -> PublishResult:
-        # Live Graph API publishing requires META credentials + page token.
-        # Phase 3 uses simulation until live OAuth tokens are connected.
+        # Meta/Instagram live publishing is deferred; simulation remains available.
         if account.connection_mode != "live" or not account.access_token:
             return SimulationAdapter(self.platform).publish(account, version)
         return PublishResult(
             ok=False,
-            message="Live Meta publishing is configured but not fully enabled in Phase 3 yet.",
+            message="Live Meta publishing is deferred for now. Use simulation mode, or reconnect later when Meta credentials are added.",
             simulated=False,
         )
 
@@ -64,11 +63,9 @@ class LinkedInAdapter:
     def publish(self, account: SocialAccount, version: ContentVersion) -> PublishResult:
         if account.connection_mode != "live" or not account.access_token:
             return SimulationAdapter(self.platform).publish(account, version)
-        return PublishResult(
-            ok=False,
-            message="Live LinkedIn publishing is configured but not fully enabled in Phase 3 yet.",
-            simulated=False,
-        )
+        from app.social.linkedin import publish_live
+
+        return publish_live(account, version)
 
 
 def get_adapter(platform: str) -> SocialAdapter:

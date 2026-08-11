@@ -221,7 +221,7 @@ export default function PublishingPage() {
   return (
     <AppShell title="Publishing" subtitle="Schedule approved variants, publish now, and review worker logs">
       <div className="space-y-6">
-        {error ? <p className="rounded-xl bg-coral/10 px-3 py-2 text-sm text-coral">{error}</p> : null}
+        {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
         {message ? <p className="rounded-xl bg-mist-deep px-3 py-2 text-sm text-ink">{message}</p> : null}
 
         <section className="rounded-2xl border border-ink/5 bg-white/85 p-5">
@@ -349,7 +349,7 @@ export default function PublishingPage() {
                       {post.external_post_id ? (
                         <p className="mt-1 text-xs text-ink-mute">External: {post.external_post_id}</p>
                       ) : null}
-                      {post.last_error ? <p className="mt-1 text-xs text-coral">{post.last_error}</p> : null}
+                      {post.last_error ? <p className="mt-1 text-xs text-red-700">{post.last_error}</p> : null}
                     </div>
                     <div className="flex gap-2">
                       {post.status === "failed" || post.status === "scheduled" ? (
