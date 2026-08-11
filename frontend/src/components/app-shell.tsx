@@ -64,7 +64,7 @@ export function AppShell({ children, title, subtitle }: { children: ReactNode; t
             })}
           </nav>
           <div className="mt-auto pt-6 text-xs text-ink-mute">
-            Phase 6 campaigns & leads
+            Phase 7 AI advisor
           </div>
         </aside>
 
