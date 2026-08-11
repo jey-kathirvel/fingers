@@ -46,6 +46,7 @@ export type DashboardOverview = {
   failed_posts: number;
   scheduled_posts: number;
   approval_items: number;
+  draft_count?: number;
   integration_health: { platform: string; status: string }[];
   action_queue: { id: string; type: string; title: string; priority: string }[];
   recommendations: { id: string; title: string; detail: string }[];

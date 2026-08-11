@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_name: str = "Fingers"
-    app_version: str = "0.1.0"
+    app_version: str = "0.2.0"
     environment: str = "development"
     api_prefix: str = "/api"
 
@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     seed_admin_email: str = "admin@fingers.ads-ai.in"
     seed_admin_password: str = "FingersAdmin!2026"
     seed_admin_name: str = "Fingers Admin"
+
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4o-mini"
 
     @property
     def cors_origin_list(self) -> list[str]:

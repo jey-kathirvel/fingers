@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser, DbDep, get_membership, require_roles
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
-from app.models import Brand, BrandGuidelines, Organization, OrganizationMember, Role, User
+from app.models import Brand, BrandGuidelines, ContentItem, ContentStatus, Organization, OrganizationMember, Role, User
 from app.schemas import (
     BrandCreate,
     BrandOut,
@@ -45,6 +45,7 @@ def health(db: DbDep) -> HealthResponse:
         redis_status = "unavailable"
 
     overall = "ok" if db_status == "ok" else "degraded"
+    ai_provider = "openai" if settings.openai_api_key else "local"
     return HealthResponse(
         status=overall,
         app=settings.app_name,
@@ -52,6 +53,7 @@ def health(db: DbDep) -> HealthResponse:
         environment=settings.environment,
         database=db_status,
         redis=redis_status,
+        ai_provider=ai_provider,
         timestamp=datetime.now(timezone.utc),
     )
 
@@ -208,6 +210,22 @@ def analytics_overview(
     membership: OrganizationMember = Depends(require_roles(*Role)),
 ) -> DashboardOverview:
     brands_count = db.query(Brand).filter(Brand.organization_id == membership.organization_id).count()
+    draft_count = (
+        db.query(ContentItem)
+        .filter(
+            ContentItem.organization_id == membership.organization_id,
+            ContentItem.status == ContentStatus.draft.value,
+        )
+        .count()
+    )
+    review_count = (
+        db.query(ContentItem)
+        .filter(
+            ContentItem.organization_id == membership.organization_id,
+            ContentItem.status == ContentStatus.review.value,
+        )
+        .count()
+    )
     return DashboardOverview(
         followers=0,
         reach=0,
@@ -221,7 +239,8 @@ def analytics_overview(
         connected_accounts=0,
         failed_posts=0,
         scheduled_posts=0,
-        approval_items=0,
+        approval_items=review_count,
+        draft_count=draft_count,
         integration_health=[
             {"platform": "instagram", "status": "not_connected"},
             {"platform": "facebook", "status": "not_connected"},
@@ -229,23 +248,23 @@ def analytics_overview(
         ],
         action_queue=[
             {
-                "id": "welcome",
-                "type": "setup",
-                "title": "Connect your first social account",
-                "priority": "medium",
+                "id": "drafts",
+                "type": "content",
+                "title": f"{draft_count} draft(s) in AI Studio",
+                "priority": "medium" if draft_count else "low",
             },
             {
-                "id": "brand",
-                "type": "setup",
-                "title": "Complete brand voice guidelines",
-                "priority": "low",
+                "id": "approvals",
+                "type": "workflow",
+                "title": f"{review_count} item(s) awaiting approval",
+                "priority": "high" if review_count else "low",
             },
         ],
         recommendations=[
             {
-                "id": "rec-1",
-                "title": "Start with AI Content Studio",
-                "detail": "Generate platform-specific drafts once Phase 2 is enabled.",
+                "id": "rec-studio",
+                "title": "Generate platform-specific variants",
+                "detail": "Open AI Studio, describe a goal, and create LinkedIn/Instagram/Facebook drafts.",
             }
         ],
     )

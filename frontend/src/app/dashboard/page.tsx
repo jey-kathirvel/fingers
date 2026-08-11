@@ -41,6 +41,8 @@ export default function DashboardPage() {
             <Stat label="Clicks" value={data.clicks} />
             <Stat label="Leads" value={data.leads} />
             <Stat label="Published posts" value={data.published_posts} />
+            <Stat label="Drafts" value={data.draft_count ?? 0} />
+            <Stat label="Approval items" value={data.approval_items} />
             <Stat label="Response backlog" value={data.response_backlog} />
           </section>
 

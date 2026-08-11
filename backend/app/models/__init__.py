@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -140,4 +141,101 @@ class Notification(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     body: Mapped[str | None] = mapped_column(Text)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ContentStatus(str, enum.Enum):
+    draft = "draft"
+    review = "review"
+    approved = "approved"
+    scheduled = "scheduled"
+    published = "published"
+    failed = "failed"
+
+
+class Platform(str, enum.Enum):
+    linkedin = "linkedin"
+    instagram = "instagram"
+    facebook = "facebook"
+    x = "x"
+    youtube = "youtube"
+
+
+class ContentItem(Base):
+    __tablename__ = "content_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    brand_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("brands.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    objective: Mapped[str | None] = mapped_column(String(100))
+    topic: Mapped[str | None] = mapped_column(Text)
+    master_concept: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default=ContentStatus.draft.value, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    versions: Mapped[list["ContentVersion"]] = relationship(
+        back_populates="content_item", cascade="all, delete-orphan"
+    )
+
+
+class ContentVersion(Base):
+    __tablename__ = "content_versions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    content_item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_items.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    format: Mapped[str | None] = mapped_column(String(64))
+    headline: Mapped[str | None] = mapped_column(String(500))
+    body: Mapped[str | None] = mapped_column(Text)
+    hashtags: Mapped[str | None] = mapped_column(Text)
+    cta: Mapped[str | None] = mapped_column(Text)
+    image_prompt: Mapped[str | None] = mapped_column(Text)
+    video_script: Mapped[str | None] = mapped_column(Text)
+    score_clarity: Mapped[int | None] = mapped_column(Integer)
+    score_brand_fit: Mapped[int | None] = mapped_column(Integer)
+    score_cta: Mapped[int | None] = mapped_column(Integer)
+    score_platform_fit: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    content_item: Mapped[ContentItem] = relationship(back_populates="versions")
+
+
+class ContentIdea(Base):
+    __tablename__ = "content_ideas"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    brand_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("brands.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    format: Mapped[str | None] = mapped_column(String(64))
+    goal: Mapped[str | None] = mapped_column(String(100))
+    platforms: Mapped[str | None] = mapped_column(String(255))
+    confidence: Mapped[str | None] = mapped_column(String(32))
+    rationale: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MediaAsset(Base):
+    __tablename__ = "media_assets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    brand_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    asset_type: Mapped[str] = mapped_column(String(64), default="image", nullable=False)
+    url_or_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    prompt: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

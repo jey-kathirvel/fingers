@@ -19,7 +19,13 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 - Health/version endpoints
 - systemd services + Apache reverse proxy deployment
 
-Later phases (AI Studio, publishing adapters, inbox, analytics, automation) are scaffolded in navigation as upcoming modules.
+## Phase 2
+
+- AI Content Studio (generate / rewrite / ideas)
+- Platform-neutral content items + channel versions
+- Draft → review → approved workflow
+- Media asset library (prompt/reference records)
+- OpenAI provider when `OPENAI_API_KEY` is set; otherwise local Social Media Engineer engine
 
 ## Local development
 
