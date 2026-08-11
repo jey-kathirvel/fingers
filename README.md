@@ -6,7 +6,7 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 
 - **Frontend:** Next.js 14 + Tailwind (port `3090`)
 - **Backend:** FastAPI (port `8095`; `8090` is reserved by another app on this VPS)
-- **Worker:** due-post publisher, engagement inbox sync, analytics sync; AI Advisor
+- **Worker:** due-post publisher, engagement inbox sync, analytics sync, automations, listening; AI Advisor
 - **Database:** PostgreSQL (`fingers_db`)
 
 ## Phase 1
@@ -61,6 +61,12 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 - AI Advisor recommendations grounded in metrics, inbox, leads and campaigns
 - Categories: timing, content, format, repurpose, ops, leads
 - Accept/dismiss workflow; dashboard surfaces active advice
+
+## Phase 8
+
+- Automation rules with auditable runs (keyword → lead, negative escalate, SLA, publish fail, high engagement)
+- Social listening terms, simulated mention sync, sentiment + share-of-voice summary
+- Worker periodically evaluates rules and refreshes listening mentions
 
 ## Local development
 

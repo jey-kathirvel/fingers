@@ -378,7 +378,7 @@ def integration_health(
         "ai_provider": settings.llm_provider,
         "meta_configured": settings.meta_configured,
         "linkedin_configured": settings.linkedin_configured,
-        "phase": "7",
+        "phase": "8",
     }
 
 
