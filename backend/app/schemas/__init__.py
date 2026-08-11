@@ -533,3 +533,28 @@ class ConvertLeadRequest(BaseModel):
     campaign_id: UUID | None = None
     product_interest: str | None = None
     notes: str | None = None
+
+
+class RecommendationOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    brand_id: UUID | None
+    category: str
+    title: str
+    detail: str
+    rationale: str | None
+    priority: str
+    status: str
+    evidence_json: str | None
+    provider: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class RecommendationGenerateRequest(BaseModel):
+    brand_id: UUID | None = None
+    use_llm: bool = True
+
+
+class RecommendationUpdate(BaseModel):
+    status: str
