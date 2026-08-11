@@ -33,7 +33,8 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 - Schedule posts + calendar view
 - Publish now / retry / cancel
 - Worker processes due posts with idempotency + publishing logs
-- Meta + LinkedIn adapters (simulation by default; live Graph/API stubs until OAuth credentials are wired)
+- **LinkedIn live**: OAuth connect + Posts API publish when `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` are set
+- Meta/Instagram: simulation only for now (live Meta deferred)
 
 ## Local development
 

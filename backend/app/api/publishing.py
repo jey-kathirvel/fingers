@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import joinedload
 
 from app.api.deps import CurrentUser, DbDep, require_roles
@@ -84,21 +85,46 @@ def connect_social_account(
     membership: OrganizationMember = Depends(require_roles(Role.admin, Role.creator)),
 ) -> SocialAccount:
     from app.models import Brand
+    from app.social.linkedin import fetch_profile, normalize_author_urn
 
     brand = db.get(Brand, payload.brand_id)
     if not brand or brand.organization_id != membership.organization_id:
         raise HTTPException(status_code=404, detail="Brand not found")
 
     mode = payload.connection_mode if payload.connection_mode in {"simulation", "live"} else "simulation"
+    if mode == "live" and payload.platform in {"instagram", "facebook"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Live Meta publishing is deferred. Use simulation for Instagram/Facebook, or connect LinkedIn live.",
+        )
+    if mode == "live" and payload.platform == "linkedin" and not payload.access_token:
+        raise HTTPException(status_code=400, detail="LinkedIn live connect requires an access token")
+
+    account_name = payload.account_name
+    external_id = payload.external_account_id
+    token_expires_at = None
+
+    if mode == "live" and payload.platform == "linkedin" and payload.access_token:
+        try:
+            profile = fetch_profile(payload.access_token)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        external_id = normalize_author_urn(external_id) or profile.person_urn
+        if not account_name or account_name.strip().lower() in {"linkedin", "live linkedin"}:
+            account_name = profile.name or account_name
+    else:
+        external_id = external_id or f"{payload.platform}-{payload.account_name}"
+
     account = SocialAccount(
         organization_id=membership.organization_id,
         brand_id=payload.brand_id,
         platform=payload.platform,
-        account_name=payload.account_name,
-        external_account_id=payload.external_account_id or f"{payload.platform}-{payload.account_name}",
+        account_name=account_name,
+        external_account_id=external_id,
         status="connected",
         connection_mode=mode,
         access_token=payload.access_token,
+        token_expires_at=token_expires_at,
     )
     db.add(account)
     db.commit()
@@ -322,3 +348,84 @@ def publishing_logs(
         .limit(100)
         .all()
     )
+
+
+@router.get("/integrations/linkedin/oauth-url")
+def linkedin_oauth_url(
+    user: CurrentUser,
+    db: DbDep,
+    brand_id: UUID,
+    membership: OrganizationMember = Depends(require_roles(Role.admin, Role.creator)),
+) -> dict:
+    from app.core.config import get_settings
+    from app.models import Brand
+    from app.social.linkedin import build_authorize_url
+
+    brand = db.get(Brand, brand_id)
+    if not brand or brand.organization_id != membership.organization_id:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    settings = get_settings()
+    if not settings.linkedin_configured:
+        raise HTTPException(status_code=400, detail="LinkedIn app credentials are not configured")
+    try:
+        return build_authorize_url(
+            organization_id=str(membership.organization_id),
+            brand_id=str(brand_id),
+            user_id=str(user.id),
+            settings=settings,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/integrations/linkedin/callback")
+def linkedin_oauth_callback(
+    db: DbDep,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    error_description: str | None = Query(default=None),
+) -> RedirectResponse:
+    from app.core.config import get_settings
+    from app.models import Brand
+    from app.social.linkedin import exchange_code_for_token, fetch_profile, parse_oauth_state
+
+    frontend = "https://fingers.ads-ai.in/integrations"
+    if error:
+        detail = error_description or error
+        return RedirectResponse(f"{frontend}?linkedin=error&detail={detail}", status_code=302)
+    if not code or not state:
+        return RedirectResponse(f"{frontend}?linkedin=error&detail=missing_code", status_code=302)
+
+    settings = get_settings()
+    try:
+        parsed = parse_oauth_state(state, settings=settings)
+        tokens = exchange_code_for_token(code, settings=settings)
+        profile = fetch_profile(tokens.access_token)
+    except Exception as exc:  # noqa: BLE001
+        return RedirectResponse(f"{frontend}?linkedin=error&detail={str(exc)[:180]}", status_code=302)
+
+    brand = db.get(Brand, UUID(parsed["brand_id"]))
+    if not brand or str(brand.organization_id) != parsed["organization_id"]:
+        return RedirectResponse(f"{frontend}?linkedin=error&detail=brand_mismatch", status_code=302)
+
+    expires_at = None
+    if tokens.expires_in:
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(tokens.expires_in))
+
+    account = SocialAccount(
+        organization_id=brand.organization_id,
+        brand_id=brand.id,
+        platform="linkedin",
+        account_name=profile.name or "LinkedIn",
+        external_account_id=profile.person_urn,
+        status="connected",
+        connection_mode="live",
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+        token_expires_at=expires_at,
+        metadata_json=None,
+    )
+    db.add(account)
+    db.commit()
+    return RedirectResponse(f"{frontend}?linkedin=connected", status_code=302)
