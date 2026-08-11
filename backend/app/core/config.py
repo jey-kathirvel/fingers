@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     app_name: str = "Fingers"
-    app_version: str = "0.2.1"
+    app_version: str = "0.3.0"
     environment: str = "development"
     api_prefix: str = "/api"
 
@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     openai_base_url: str = "https://api.openai.com/v1"
 
+    # Optional Phase 3 social credentials (simulation works without these)
+    meta_app_id: str | None = None
+    meta_app_secret: str | None = None
+    linkedin_client_id: str | None = None
+    linkedin_client_secret: str | None = None
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -46,6 +52,14 @@ class Settings(BaseSettings):
         if self.openai_api_key:
             return "openai"
         return "local"
+
+    @property
+    def meta_configured(self) -> bool:
+        return bool(self.meta_app_id and self.meta_app_secret)
+
+    @property
+    def linkedin_configured(self) -> bool:
+        return bool(self.linkedin_client_id and self.linkedin_client_secret)
 
 
 @lru_cache

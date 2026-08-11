@@ -225,3 +225,81 @@ class MediaAssetOut(ORMModel):
     tags: str | None
     created_by: UUID | None
     created_at: datetime
+
+
+class SocialAccountCreate(BaseModel):
+    brand_id: UUID
+    platform: str = Field(pattern=r"^(linkedin|instagram|facebook)$")
+    account_name: str = Field(min_length=2, max_length=255)
+    external_account_id: str | None = None
+    connection_mode: str = "simulation"
+    access_token: str | None = None
+
+
+class SocialAccountOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    brand_id: UUID
+    platform: str
+    account_name: str
+    external_account_id: str | None
+    status: str
+    connection_mode: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SchedulePostRequest(BaseModel):
+    content_item_id: UUID
+    content_version_id: UUID
+    social_account_id: UUID
+    scheduled_for: datetime
+
+
+class PublishNowRequest(BaseModel):
+    content_item_id: UUID
+    social_account_id: UUID
+    content_version_id: UUID | None = None
+
+
+class ScheduledPostOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    brand_id: UUID
+    content_item_id: UUID
+    content_version_id: UUID
+    social_account_id: UUID
+    platform: str
+    status: str
+    scheduled_for: datetime
+    attempt_count: int
+    max_attempts: int
+    last_error: str | None
+    published_at: datetime | None
+    external_post_id: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PublishingLogOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    scheduled_post_id: UUID | None
+    content_item_id: UUID | None
+    platform: str
+    action: str
+    status: str
+    message: str | None
+    external_post_id: str | None
+    created_at: datetime
+
+
+class CalendarItemOut(BaseModel):
+    id: UUID
+    title: str
+    platform: str
+    status: str
+    scheduled_for: datetime
+    content_item_id: UUID
+    brand_id: UUID
+    account_name: str | None = None
