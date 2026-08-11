@@ -120,7 +120,7 @@ def test_integration_health_includes_phase3(client, auth_headers) -> None:
     res = client.get("/api/integration-health", headers=headers)
     assert res.status_code == 200
     body = res.json()
-    assert body["phase"] == "3"
+    assert int(body["phase"]) >= 3
     assert "platforms" in body
     assert "meta_configured" in body
     assert "linkedin_configured" in body

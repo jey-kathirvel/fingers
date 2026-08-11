@@ -310,3 +310,71 @@ class PublishingLog(Base):
     message: Mapped[str | None] = mapped_column(Text)
     external_post_id: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SocialInteraction(Base):
+    __tablename__ = "social_interactions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    brand_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("brands.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    social_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("social_accounts.id", ondelete="SET NULL"), index=True
+    )
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    interaction_type: Mapped[str] = mapped_column(String(32), nullable=False)  # comment|message|mention|review
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    author_name: Mapped[str | None] = mapped_column(String(255))
+    author_handle: Mapped[str | None] = mapped_column(String(255))
+    author_external_id: Mapped[str | None] = mapped_column(String(255))
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    permalink: Mapped[str | None] = mapped_column(String(1000))
+    sentiment: Mapped[str] = mapped_column(String(32), default="neutral", nullable=False)
+    intent: Mapped[str] = mapped_column(String(64), default="other", nullable=False)
+    priority: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    lead_probability: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="new", nullable=False)
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    content_item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    scheduled_post_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    parent_external_id: Mapped[str | None] = mapped_column(String(255))
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    metadata_json: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    drafts: Mapped[list["AiReplyDraft"]] = relationship(
+        back_populates="interaction", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "platform", "external_id", name="uq_interaction_external"),
+    )
+
+
+class AiReplyDraft(Base):
+    __tablename__ = "ai_reply_drafts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    interaction_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("social_interactions.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    tone: Mapped[str | None] = mapped_column(String(64))
+    provider: Mapped[str] = mapped_column(String(64), default="local", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="suggested", nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    external_reply_id: Mapped[str | None] = mapped_column(String(255))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    interaction: Mapped[SocialInteraction] = relationship(back_populates="drafts")

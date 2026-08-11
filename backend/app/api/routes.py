@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser, DbDep, get_membership, require_roles
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
-from app.models import Brand, BrandGuidelines, ContentItem, ContentStatus, Organization, OrganizationMember, Role, ScheduledPost, SocialAccount, User
+from app.models import Brand, BrandGuidelines, ContentItem, ContentStatus, Organization, OrganizationMember, Role, ScheduledPost, SocialAccount, SocialInteraction, User
 from app.schemas import (
     BrandCreate,
     BrandOut,
@@ -258,6 +258,14 @@ def analytics_overview(
         )
         .count()
     )
+    response_backlog = (
+        db.query(SocialInteraction)
+        .filter(
+            SocialInteraction.organization_id == membership.organization_id,
+            SocialInteraction.status.in_(["new", "assigned", "draft_reply"]),
+        )
+        .count()
+    )
     accounts = (
         db.query(SocialAccount)
         .filter(
@@ -278,7 +286,7 @@ def analytics_overview(
         clicks=0,
         leads=0,
         published_posts=published_posts,
-        response_backlog=0,
+        response_backlog=response_backlog,
         brands_count=brands_count,
         connected_accounts=connected_accounts,
         failed_posts=failed_posts,
@@ -292,6 +300,12 @@ def analytics_overview(
                 "type": "publishing",
                 "title": f"{failed_posts} failed publish job(s)",
                 "priority": "high" if failed_posts else "low",
+            },
+            {
+                "id": "inbox",
+                "type": "engagement",
+                "title": f"{response_backlog} inbox item(s) awaiting reply",
+                "priority": "high" if response_backlog else "low",
             },
             {
                 "id": "scheduled",
@@ -308,9 +322,9 @@ def analytics_overview(
         ],
         recommendations=[
             {
-                "id": "rec-publish",
-                "title": "Schedule approved variants",
-                "detail": "Connect simulation accounts in Integrations, then schedule from Publishing.",
+                "id": "rec-inbox",
+                "title": "Clear the engagement backlog",
+                "detail": "Sync the inbox, draft AI replies, then Approve & Send from Engagement.",
             }
         ],
     )
@@ -346,7 +360,7 @@ def integration_health(
         "ai_provider": settings.llm_provider,
         "meta_configured": settings.meta_configured,
         "linkedin_configured": settings.linkedin_configured,
-        "phase": "3",
+        "phase": "4",
     }
 
 
