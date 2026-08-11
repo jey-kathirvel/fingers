@@ -422,3 +422,114 @@ class PostMetricOut(BaseModel):
     video_views: int
     engagement_rate: float
     measured_at: str
+
+
+class CampaignCreate(BaseModel):
+    brand_id: UUID
+    name: str = Field(min_length=2, max_length=255)
+    objective: str | None = None
+    platforms: list[str] = Field(default_factory=list)
+    status: str = "draft"
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    kpi_targets: str | None = None
+    notes: str | None = None
+
+
+class CampaignUpdate(BaseModel):
+    name: str | None = None
+    objective: str | None = None
+    platforms: list[str] | None = None
+    status: str | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    kpi_targets: str | None = None
+    notes: str | None = None
+
+
+class CampaignOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    brand_id: UUID
+    name: str
+    objective: str | None
+    platforms: str | None
+    status: str
+    start_date: datetime | None
+    end_date: datetime | None
+    kpi_targets: str | None
+    notes: str | None
+    created_by: UUID | None
+    created_at: datetime
+    updated_at: datetime
+    content_item_ids: list[UUID] = Field(default_factory=list)
+
+
+class CampaignLinkContentRequest(BaseModel):
+    content_item_id: UUID
+
+
+class LeadCreate(BaseModel):
+    brand_id: UUID
+    name: str = Field(min_length=1, max_length=255)
+    source_platform: str | None = None
+    interaction_id: UUID | None = None
+    content_item_id: UUID | None = None
+    campaign_id: UUID | None = None
+    intent: str | None = None
+    score: int = 0
+    status: str = "new"
+    product_interest: str | None = None
+    follow_up_at: datetime | None = None
+    source_message: str | None = None
+    notes: str | None = None
+
+
+class LeadUpdate(BaseModel):
+    name: str | None = None
+    status: str | None = None
+    score: int | None = None
+    intent: str | None = None
+    product_interest: str | None = None
+    campaign_id: UUID | None = None
+    follow_up_at: datetime | None = None
+    notes: str | None = None
+    owner_id: UUID | None = None
+
+
+class LeadOut(ORMModel):
+    id: UUID
+    organization_id: UUID
+    brand_id: UUID
+    name: str
+    source_platform: str | None
+    social_account_id: UUID | None
+    interaction_id: UUID | None
+    content_item_id: UUID | None
+    campaign_id: UUID | None
+    intent: str | None
+    score: int
+    status: str
+    product_interest: str | None
+    owner_id: UUID | None
+    follow_up_at: datetime | None
+    source_message: str | None
+    notes: str | None
+    status_history: str | None
+    created_by: UUID | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class LeadPipelineOut(BaseModel):
+    total: int
+    by_status: dict[str, int]
+    converted: int
+    open_count: int
+    avg_score: float
+
+
+class ConvertLeadRequest(BaseModel):
+    campaign_id: UUID | None = None
+    product_interest: str | None = None
+    notes: str | None = None

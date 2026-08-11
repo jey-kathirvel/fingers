@@ -50,6 +50,12 @@ Social Media Engineering & Engagement platform for `https://fingers.ads-ai.in`.
 - Dashboard KPIs fed from synced metrics
 - Metrics sync endpoint + worker refresh
 
+## Phase 6
+
+- Campaign planning with objectives, platforms, KPIs and content links
+- Leads mini-CRM pipeline: new → contacted → interested → demo → proposal → converted/lost
+- Convert inbox interactions into attributed leads
+
 ## Local development
 
 ```bash

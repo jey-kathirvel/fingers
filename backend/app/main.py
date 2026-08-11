@@ -6,6 +6,7 @@ from app.api.studio import router as studio_router
 from app.api.publishing import router as publishing_router
 from app.api.engagement import router as engagement_router
 from app.api.analytics import router as analytics_router
+from app.api.campaigns import router as campaigns_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -23,6 +24,7 @@ app.include_router(studio_router, prefix=settings.api_prefix)
 app.include_router(publishing_router, prefix=settings.api_prefix)
 app.include_router(engagement_router, prefix=settings.api_prefix)
 app.include_router(analytics_router, prefix=settings.api_prefix)
+app.include_router(campaigns_router, prefix=settings.api_prefix)
 
 
 @app.get("/")
